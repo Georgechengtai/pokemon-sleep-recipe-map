@@ -8,6 +8,7 @@
 /* ── Reset & tokens ───────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
+  /* Dark theme (default) */
   --bg: #0f1117;
   --surface: #1a1d27;
   --surface2: #22263a;
@@ -21,9 +22,30 @@
   --dessert: #f06292;
   --tier-high: #ffd54f;
   --owned: #66bb6a;
+  --card-bg: linear-gradient(180deg, #1d2030 0%, #161824 100%);
+  --card-shadow: 0 2px 6px rgba(0,0,0,0.35);
+  --card-shadow-hover: 0 6px 20px rgba(121,134,203,0.25);
   --cell-size: 14px;
   --cell-gap: 1px;
   --font: 'Helvetica Neue', Arial, 'PingFang TC', 'Noto Sans TC', sans-serif;
+}
+:root[data-theme="light"] {
+  --bg: #f4f5f9;
+  --surface: #ffffff;
+  --surface2: #eef0f7;
+  --border: #d8dbe6;
+  --text: #1f2233;
+  --text-muted: #6b7299;
+  --accent: #5c6bc0;
+  --accent-bright: #3949ab;
+  --curry: #d84315;
+  --salad: #43a047;
+  --dessert: #c2185b;
+  --tier-high: #f57c00;
+  --owned: #2e7d32;
+  --card-bg: linear-gradient(180deg, #ffffff 0%, #f7f8fb 100%);
+  --card-shadow: 0 1px 3px rgba(60,72,107,0.08), 0 1px 2px rgba(60,72,107,0.04);
+  --card-shadow-hover: 0 4px 16px rgba(92,107,192,0.15);
 }
 html, body { height: 100%; overflow: hidden; }
 body {
@@ -480,14 +502,40 @@ body {
 
 /* ── Tab 1: Recipe Browser ───────────────────────────────────── */
 #tab-browser { flex-direction: column; }
-#browser-controls {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 16px;
+#browser-controls-wrap {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
+  padding: 4px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ctrl-section {
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--border);
+}
+.ctrl-section:last-child { border-bottom: none; }
+.ctrl-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.ctrl-h-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent-bright);
+  letter-spacing: 0.04em;
+}
+.ctrl-h-note {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.ctrl-options {
+  display: flex;
+  align-items: center;
+  gap: 16px;
   flex-wrap: wrap;
 }
 .browser-toggle {
@@ -511,15 +559,22 @@ body {
 }
 #reset-btn:hover { color: var(--text); border-color: var(--accent); }
 
-#ing-toolbar {
+#ing-toolbar, #excluded-toolbar {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 10px 16px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
 }
+#theme-toggle {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 3px 9px;
+  border-radius: 14px;
+  margin-left: auto;
+}
+#theme-toggle:hover { color: var(--text); border-color: var(--accent); }
 .ing-toolchip {
   display: inline-flex;
   align-items: center;
@@ -598,6 +653,13 @@ body {
   letter-spacing: 0.04em;
 }
 .recipe-section-header .section-count { color: var(--text-muted); font-weight: 400; font-size: 11px; }
+.recipe-section-header .section-hidden {
+  margin-left: auto;
+  font-weight: 400;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-style: italic;
+}
 .recipe-section-header.curry   { color: var(--curry); }
 .recipe-section-header.salad   { color: var(--salad); }
 .recipe-section-header.dessert { color: var(--dessert); }
@@ -610,99 +672,156 @@ body {
 }
 
 .recipe-card {
-  background: var(--surface);
-  border: 1.5px solid var(--border);
-  border-radius: 6px;
-  padding: 8px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 11px 11px;
   position: relative;
   font-size: 11px;
   cursor: default;
-  transition: all 0.15s;
-  opacity: 0.55;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  opacity: 0.62;
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+}
+.recipe-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--card-shadow-hover);
 }
 .recipe-card .tier-stripe {
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 3px;
-  border-radius: 5px 5px 0 0;
-  opacity: 0.65;
+  height: 4px;
+  opacity: 0.85;
 }
-.recipe-card.curry   .tier-stripe { background: var(--curry); }
-.recipe-card.salad   .tier-stripe { background: var(--salad); }
-.recipe-card.dessert .tier-stripe { background: var(--dessert); }
+.recipe-card.curry   .tier-stripe { background: linear-gradient(90deg, var(--curry), var(--tier-high)); }
+.recipe-card.salad   .tier-stripe { background: linear-gradient(90deg, var(--salad), var(--tier-high)); }
+.recipe-card.dessert .tier-stripe { background: linear-gradient(90deg, var(--dessert), var(--tier-high)); }
+.recipe-card .tier-badge {
+  position: absolute;
+  top: 8px; right: 8px;
+  background: var(--surface2);
+  color: var(--tier-high);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
 .recipe-card-title {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-top: 4px;
-  margin-bottom: 6px;
+  gap: 9px;
+  margin-top: 8px;
+  margin-bottom: 8px;
   font-weight: 600;
   color: var(--text);
-  font-size: 12px;
+  font-size: 13px;
+  padding-right: 40px;
 }
-.recipe-card-title img { flex-shrink: 0; }
-.recipe-card-title .recipe-name { flex: 1; line-height: 1.2; }
+.recipe-card-title .recipe-icon-wrap {
+  flex-shrink: 0;
+  width: 40px; height: 40px;
+  background: var(--surface2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px;
+}
+.recipe-card-title .recipe-icon-wrap img { width: 100%; height: 100%; object-fit: contain; }
+.recipe-card-title .recipe-name { flex: 1; line-height: 1.25; word-break: break-all; }
+
 .recipe-card-meta {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
-  color: var(--text-muted);
+  gap: 8px;
+  margin-bottom: 8px;
 }
-.recipe-card-meta .score { color: var(--tier-high); font-weight: 600; }
+.recipe-card-meta .score {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  background: linear-gradient(135deg, rgba(255,213,79,0.18), rgba(255,138,101,0.12));
+  color: var(--tier-high);
+  font-weight: 700;
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
 .recipe-card-ings {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px 6px;
+  gap: 4px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border);
 }
 .recipe-ing {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  font-size: 10px;
+  gap: 3px;
+  font-size: 10.5px;
   color: var(--text-muted);
+  padding: 1px 5px 1px 3px;
+  border-radius: 8px;
+  background: var(--surface2);
 }
-.recipe-ing img { width: 12px; height: 12px; }
-.recipe-ing.owned { color: var(--owned); }
-.recipe-ing.missing { color: var(--accent-bright); font-weight: 600; }
-.recipe-ing.excluded { color: var(--dessert); text-decoration: line-through; }
+.recipe-ing img { width: 14px; height: 14px; }
+.recipe-ing.owned { color: var(--owned); background: rgba(102,187,106,0.13); }
+.recipe-ing.missing { color: var(--accent-bright); font-weight: 700; background: rgba(121,134,203,0.13); }
+.recipe-ing.excluded { color: var(--dessert); text-decoration: line-through; background: rgba(240,98,146,0.10); }
 
 .recipe-card.cookable {
   opacity: 1;
   border-color: var(--owned);
-  background: linear-gradient(180deg, rgba(102,187,106,0.08), var(--surface));
+  background: linear-gradient(180deg, rgba(102,187,106,0.10), var(--card-bg) 70%);
 }
-.recipe-card.cookable::before {
-  content: '✓';
+.recipe-card.cookable .cook-check {
   position: absolute;
-  top: 6px; right: 8px;
-  color: var(--owned);
+  top: 8px; right: 8px;
+  background: var(--owned);
+  color: #fff;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-weight: 700;
-  font-size: 12px;
+  font-size: 13px;
+  box-shadow: 0 2px 6px rgba(102,187,106,0.5);
 }
+.recipe-card.cookable .tier-badge { display: none; }
 .recipe-card.near-cookable {
-  opacity: 0.92;
+  opacity: 0.95;
   border-color: var(--accent);
-  background: linear-gradient(180deg, rgba(121,134,203,0.06), var(--surface));
 }
 .recipe-card.near-cookable .miss-badge {
   position: absolute;
-  top: 6px; right: 8px;
+  top: 8px; right: 8px;
   background: var(--accent);
   color: #fff;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 8px;
+  padding: 2px 7px;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(121,134,203,0.45);
 }
-.recipe-card.blocked {
-  opacity: 0.35;
-  border-color: var(--dessert);
-}
-.recipe-card.blocked .recipe-card-title .recipe-name { text-decoration: line-through; color: var(--text-muted); }
+.recipe-card.near-cookable .tier-badge { display: none; }
+/* .blocked state no longer rendered — excluded recipes are hidden entirely */
 
 /* ── Tab 3: keeps existing #main structure ──────────────────── */
-#tab-explore { flex-direction: row; }
+#tab-explore { flex-direction: column; }
+#tab-explore #main { flex: 1; display: flex; overflow: hidden; }
+#explore-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
 
 /* ── Coming-soon placeholders for Tabs 2 / 4 ────────────────── */
 .tab-placeholder {
@@ -738,16 +857,9 @@ body {
 <!-- Top bar -->
 <div id="topbar">
   <h1>🍱 寶睡料理食材圖</h1>
-  <div class="tier-filter">
-    <label>階級</label>
-    <button class="tier-btn" data-tier="0">全部</button>
-    <button class="tier-btn" data-tier="0.25">+25%↑</button>
-    <button class="tier-btn active" data-tier="0.48">+48%↑</button>
-    <button class="tier-btn" data-tier="0.61">+61%↑</button>
-    <button class="tier-btn" data-tier="0.78">+78%↑</button>
-  </div>
   <input id="search-input" type="text" placeholder="食材 / 料理名…">
   <span id="owned-count">已有 0 / 19 食材</span>
+  <button id="theme-toggle" title="切換明暗主題">🌙</button>
 </div>
 
 <!-- Tab bar -->
@@ -760,14 +872,52 @@ body {
 
 <!-- Tab 1: Recipe Browser (manual exploration) -->
 <div class="tab-content active" id="tab-browser">
-  <div id="browser-controls">
-    <label class="browser-toggle">
-      <input type="checkbox" id="hide-superseded-toggle"> 隱藏被超越的料理（同系列）
-    </label>
-    <span style="color:var(--text-muted); font-size:11px;">點食材：1 次 = 已有・2 次 = 排除・3 次 = 取消</span>
-    <button id="reset-btn">↻ 重設</button>
+  <div id="browser-controls-wrap">
+
+    <section class="ctrl-section">
+      <div class="ctrl-header">
+        <span class="ctrl-h-title">① 階級篩選</span>
+        <span class="ctrl-h-note">只顯示此階級或以上的料理</span>
+      </div>
+      <div class="tier-filter tier-filter-group" data-source="tab1">
+        <button class="tier-btn" data-tier="0">全部</button>
+        <button class="tier-btn" data-tier="0.25">+25%↑</button>
+        <button class="tier-btn" data-tier="0.35">+35%↑</button>
+        <button class="tier-btn active" data-tier="0.48">+48%↑</button>
+        <button class="tier-btn" data-tier="0.61">+61%↑</button>
+        <button class="tier-btn" data-tier="0.78">+78%↑</button>
+      </div>
+    </section>
+
+    <section class="ctrl-section">
+      <div class="ctrl-header">
+        <span class="ctrl-h-title">② 你的食材庫存</span>
+        <span class="ctrl-h-note">點 1 次 = ✓ 已有・點 2 次 = ✗ 排除・點 3 次 = 取消</span>
+      </div>
+      <div id="ing-toolbar"></div>
+    </section>
+
+    <section class="ctrl-section" id="excluded-section" hidden>
+      <div class="ctrl-header">
+        <span class="ctrl-h-title">③ 已排除食材</span>
+        <span class="ctrl-h-note" id="excluded-note">點食材取消排除</span>
+      </div>
+      <div id="excluded-toolbar"></div>
+    </section>
+
+    <section class="ctrl-section">
+      <div class="ctrl-header">
+        <span class="ctrl-h-title">④ 顯示選項</span>
+      </div>
+      <div class="ctrl-options">
+        <label class="browser-toggle">
+          <input type="checkbox" id="hide-superseded-toggle"> 隱藏被超越的料理（同系列分數較低者）
+        </label>
+        <button id="reset-btn">↻ 重設全部</button>
+      </div>
+    </section>
+
   </div>
-  <div id="ing-toolbar"></div>
   <div id="recipe-sections"></div>
 </div>
 
@@ -784,6 +934,17 @@ body {
 
 <!-- Tab 3: Explore (v1 panels — Map / Recommender / Planner with shared state) -->
 <div class="tab-content" id="tab-explore">
+  <div id="explore-controls">
+    <span style="font-size:11px;color:var(--text-muted);">階級篩選</span>
+    <div class="tier-filter tier-filter-group" data-source="tab3">
+      <button class="tier-btn" data-tier="0">全部</button>
+      <button class="tier-btn" data-tier="0.25">+25%↑</button>
+      <button class="tier-btn" data-tier="0.35">+35%↑</button>
+      <button class="tier-btn active" data-tier="0.48">+48%↑</button>
+      <button class="tier-btn" data-tier="0.61">+61%↑</button>
+      <button class="tier-btn" data-tier="0.78">+78%↑</button>
+    </div>
+  </div>
   <div id="main">
 
   <!-- Map Panel -->
@@ -1484,13 +1645,15 @@ function initTabs() {
   switchTab(S.tab);
 }
 
-/* ── Tab 1: Ingredient toolbar (tri-state) ───────────────────────── */
+/* ── Tab 1: Ingredient toolbar (tri-state, in-game ID order) ────── */
 function buildIngToolbar() {
   if (!S.data) return;
   const bar = document.getElementById('ing-toolbar');
   if (!bar) return;
   bar.innerHTML = '';
-  S.data.row_order.forEach(i => {
+  // In-game ID order = ingredients array order (1=粗枝大蔥 … 19=嫩亮酪梨)
+  const order = S.data.ingredients.map((_, i) => i);
+  order.forEach(i => {
     const ing = S.data.ingredients[i];
     const chip = document.createElement('button');
     let cls = 'ing-toolchip';
@@ -1505,6 +1668,37 @@ function buildIngToolbar() {
     chip.addEventListener('click', () => cycleIngState(i));
     bar.appendChild(chip);
   });
+  buildExcludedSection();
+}
+
+function buildExcludedSection() {
+  const section = document.getElementById('excluded-section');
+  const bar = document.getElementById('excluded-toolbar');
+  const note = document.getElementById('excluded-note');
+  if (!section || !bar) return;
+
+  if (S.excluded.size === 0) { section.hidden = true; return; }
+  section.hidden = false;
+  bar.innerHTML = '';
+
+  // Count recipes that would be hidden by exclusions (within current tier filter)
+  const hidden = S.data.recipes.filter(r =>
+    !r.is_placeholder &&
+    r.tier_bonus >= S.minTier &&
+    r.ingredients.some(ing => S.excluded.has(S.data.ingredients.findIndex(x => x.name === ing.name)))
+  ).length;
+
+  note.textContent = `${S.excluded.size} 個食材，當前階級內隱藏 ${hidden} 道料理（點食材取消排除）`;
+
+  for (const i of S.excluded) {
+    const ing = S.data.ingredients[i];
+    const chip = document.createElement('button');
+    chip.className = 'ing-toolchip excluded';
+    chip.dataset.iidx = i;
+    chip.innerHTML = `${ingIconHTML(ing, 18)}<span>${ing.name}</span><span class="exclude-x">×</span>`;
+    chip.addEventListener('click', () => cycleIngState(i));
+    bar.appendChild(chip);
+  }
 }
 
 /* ── Tab 1: Recipe sections by type ──────────────────────────────── */
@@ -1534,7 +1728,7 @@ function buildBrowser() {
   root.innerHTML = '';
 
   for (const t of types) {
-    // Filter recipes for this type + tier filter
+    // Tier + type + search filter
     let recipes = S.data.recipes.filter(r =>
       !r.is_placeholder &&
       r.type_en === t &&
@@ -1544,21 +1738,26 @@ function buildBrowser() {
         r.ingredients.some(i => i.name.includes(S.search)))
     );
 
-    // Compute statuses
-    const withStatus = recipes.map(r => ({ recipe: r, ...recipeStatus(r) }));
+    // HIDE recipes that contain any excluded ingredient
+    const ingByName = Object.fromEntries(S.data.ingredients.map((x, i) => [x.name, i]));
+    const totalBefore = recipes.length;
+    recipes = recipes.filter(r =>
+      !r.ingredients.some(ing => S.excluded.has(ingByName[ing.name]))
+    );
+    const hiddenByExclude = totalBefore - recipes.length;
 
     // Hide-superseded: drop recipes whose score < max cookable of this type
+    let hiddenSuperseded = 0;
     if (S.hideSuperseded) {
+      const withStatus = recipes.map(r => ({ recipe: r, ...recipeStatus(r) }));
       const maxCookableScore = Math.max(
         0,
         ...withStatus.filter(x => x.state === 'cookable').map(x => x.recipe.score_final)
       );
       if (maxCookableScore > 0) {
-        // Keep recipes whose score >= maxCookableScore OR are not yet cookable (near/far/blocked) so the player still sees aspirational ones
-        // Wallace's spec: hide those with less energy than highest cookable. So we hide cookable ones too if below max.
+        const before = recipes.length;
         recipes = withStatus.filter(x => x.recipe.score_final >= maxCookableScore).map(x => x.recipe);
-      } else {
-        recipes = withStatus.map(x => x.recipe);
+        hiddenSuperseded = before - recipes.length;
       }
     }
 
@@ -1569,11 +1768,17 @@ function buildBrowser() {
     section.className = 'recipe-section';
 
     const headerLabel = TYPE_META[t].label.replace(/^[^\s]+\s/, '');
+    const hiddenNotes = [];
+    if (hiddenByExclude > 0) hiddenNotes.push(`含排除食材 ${hiddenByExclude} 道`);
+    if (hiddenSuperseded > 0) hiddenNotes.push(`被超越 ${hiddenSuperseded} 道`);
+    const hiddenSuffix = hiddenNotes.length ? `<span class="section-hidden">已隱藏：${hiddenNotes.join('、')}</span>` : '';
+
     section.innerHTML = `
       <div class="recipe-section-header ${t}">
         <span class="section-emoji">${TYPE_META[t].emoji}</span>
         <span>${headerLabel}</span>
         <span class="section-count">${recipes.length} 道</span>
+        ${hiddenSuffix}
       </div>
       <div class="recipe-grid" id="grid-${t}"></div>
     `;
@@ -1591,43 +1796,42 @@ function buildRecipeCard(r) {
   const ingByName = Object.fromEntries(S.data.ingredients.map((x, i) => [x.name, i]));
 
   const card = document.createElement('div');
-  card.className = `recipe-card ${typeClass(r.type_en)} ${status.state === 'cookable' ? 'cookable' : status.state === 'near' ? 'near-cookable' : status.state === 'blocked' ? 'blocked' : ''}`;
+  const stateCls = status.state === 'cookable' ? 'cookable'
+                 : status.state === 'near'     ? 'near-cookable' : '';
+  card.className = `recipe-card ${typeClass(r.type_en)} ${stateCls}`;
   card.dataset.recipe = r.name_en;
 
   const ingsHTML = r.ingredients.map(ing => {
     const idx = ingByName[ing.name];
     let cls = 'recipe-ing';
-    if (S.excluded.has(idx))    cls += ' excluded';
-    else if (S.owned.has(idx))  cls += ' owned';
+    if (S.owned.has(idx))             cls += ' owned';
     else if (status.state === 'near') cls += ' missing';
-    return `<span class="${cls}">${ingIconHTML(S.data.ingredients[idx], 12)}×${ing.count}</span>`;
+    return `<span class="${cls}">${ingIconHTML(S.data.ingredients[idx], 14)}×${ing.count}</span>`;
   }).join('');
 
-  const missingBadge = status.state === 'near'
-    ? `<span class="miss-badge">差 ${status.missingCount}</span>`
-    : '';
+  const cornerBadge =
+    status.state === 'cookable'      ? `<span class="cook-check">✓</span>`
+    : status.state === 'near'        ? `<span class="miss-badge">差 ${status.missingCount}</span>`
+    :                                  `<span class="tier-badge">+${(r.tier_bonus * 100).toFixed(0)}%</span>`;
 
   card.innerHTML = `
     <div class="tier-stripe"></div>
-    ${missingBadge}
+    ${cornerBadge}
     <div class="recipe-card-title">
-      ${recipeIconHTML(r, 28)}
+      <div class="recipe-icon-wrap">${recipeIconHTML(r, 34)}</div>
       <span class="recipe-name">${r.name}</span>
     </div>
     <div class="recipe-card-meta">
       <span class="score">🔥 ${r.score_final.toLocaleString()}</span>
-      <span>+${(r.tier_bonus * 100).toFixed(0)}%</span>
     </div>
     <div class="recipe-card-ings">${ingsHTML}</div>
   `;
 
-  // Hover → tooltip (reuse existing)
   card.addEventListener('mouseenter', e => {
     showTooltip(e, r.name, r.type,
-      `<b>${(r.tier_bonus * 100).toFixed(0)}%</b> · ${r.score_final.toLocaleString()}分<br>` +
+      `<b>+${(r.tier_bonus * 100).toFixed(0)}%</b> · ${r.score_final.toLocaleString()} 分<br>` +
       r.ingredients.map(i => `${i.name}×${i.count}`).join('、') +
-      (status.state === 'near' ? `<br><span style="color:var(--accent-bright)">差 ${status.missingCount} 種：${status.missingIngs.map(i => S.data.ingredients[i].name).join('、')}</span>` : '') +
-      (status.state === 'blocked' ? `<br><span style="color:var(--dessert)">含排除食材</span>` : ''));
+      (status.state === 'near' ? `<br><span style="color:var(--accent-bright)">差 ${status.missingCount} 種：${status.missingIngs.map(i => S.data.ingredients[i].name).join('、')}</span>` : ''));
   });
   card.addEventListener('mouseleave', () => hideTooltip());
 
@@ -1647,21 +1851,40 @@ function initBrowserControls() {
 }
 
 /* ── Tier filter ─────────────────────────────────────────────────── */
+function syncTierButtons() {
+  document.querySelectorAll('.tier-btn').forEach(btn => {
+    btn.classList.toggle('active', parseFloat(btn.dataset.tier) === S.minTier);
+  });
+}
 function initTierFilter() {
   document.querySelectorAll('.tier-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.tier-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
       S.minTier = parseFloat(btn.dataset.tier);
+      syncTierButtons();
       buildBrowser();
       buildMatrix();
       buildRecommender();
       buildPlanner();
+      buildExcludedSection();
       saveHash();
     });
   });
-  document.querySelectorAll('.tier-btn').forEach(btn => {
-    btn.classList.toggle('active', parseFloat(btn.dataset.tier) === S.minTier);
+  syncTierButtons();
+}
+
+/* ── Theme toggle ────────────────────────────────────────────────── */
+function applyTheme(name) {
+  document.documentElement.dataset.theme = name;
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = name === 'light' ? '🌙' : '☀️';
+  try { localStorage.setItem('pokeSleepTheme', name); } catch (e) {}
+}
+function initTheme() {
+  let stored = 'dark';
+  try { stored = localStorage.getItem('pokeSleepTheme') || 'dark'; } catch (e) {}
+  applyTheme(stored);
+  document.getElementById('theme-toggle')?.addEventListener('click', () => {
+    applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
   });
 }
 
@@ -1678,6 +1901,7 @@ function initSearch() {
 /* ── Init ────────────────────────────────────────────────────────── */
 function init() {
   loadHash();
+  initTheme();
   initTabs();
   initTierFilter();
   initSearch();
