@@ -702,157 +702,151 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
 .recipe-section-header.dessert { color: var(--dessert); }
 .recipe-section-header .section-emoji { font-size: 16px; }
 
+/* Multi-column masonry-style layout — cards shrink-wrap to content, no wasted vertical space */
 .recipe-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 8px;
+  column-width: 170px;
+  column-gap: 8px;
 }
 
 .recipe-card {
+  display: inline-block;
+  width: 100%;
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 10px 11px 11px;
+  border-radius: 8px;
+  padding: 7px 9px 8px;
   position: relative;
   font-size: 11px;
   cursor: default;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
-  opacity: 0.62;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+  opacity: 0.7;
   box-shadow: var(--card-shadow);
-  overflow: hidden;
+  margin-bottom: 8px;
+  break-inside: avoid;
+  page-break-inside: avoid;
+  -webkit-column-break-inside: avoid;
 }
 .recipe-card:hover {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   box-shadow: var(--card-shadow-hover);
+  opacity: 1;
 }
 .recipe-card .tier-stripe {
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 4px;
+  height: 3px;
   opacity: 0.85;
+  border-radius: 7px 7px 0 0;
 }
 .recipe-card.curry   .tier-stripe { background: linear-gradient(90deg, var(--curry), var(--tier-high)); }
 .recipe-card.salad   .tier-stripe { background: linear-gradient(90deg, var(--salad), var(--tier-high)); }
 .recipe-card.dessert .tier-stripe { background: linear-gradient(90deg, var(--dessert), var(--tier-high)); }
 .recipe-card .tier-badge {
   position: absolute;
-  top: 8px; right: 8px;
-  background: var(--surface2);
+  top: 8px; right: 9px;
   color: var(--tier-high);
   font-size: 10px;
   font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
+  letter-spacing: 0.02em;
 }
 .recipe-card-title {
   display: flex;
   align-items: center;
-  gap: 9px;
-  margin-top: 8px;
-  margin-bottom: 8px;
-  font-weight: 600;
+  gap: 7px;
+  margin-top: 5px;
+  margin-bottom: 5px;
+  font-weight: 700;
   color: var(--text);
-  font-size: 13px;
-  padding-right: 40px;
+  font-size: 13.5px;
+  letter-spacing: 0.01em;
+  padding-right: 32px;
 }
 .recipe-card-title .recipe-icon-wrap {
   flex-shrink: 0;
-  width: 40px; height: 40px;
-  background: var(--surface2);
-  border-radius: 50%;
+  width: 32px; height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 3px;
 }
 .recipe-card-title .recipe-icon-wrap img { width: 100%; height: 100%; object-fit: contain; }
-.recipe-card-title .recipe-name { flex: 1; line-height: 1.25; word-break: break-all; }
+.recipe-card-title .recipe-name {
+  flex: 1;
+  line-height: 1.18;
+  word-break: break-word;
+}
 
 .recipe-card-meta {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 5px;
+  padding-left: 1px;
 }
 .recipe-card-meta .score {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  background: linear-gradient(135deg, rgba(255,213,79,0.18), rgba(255,138,101,0.12));
   color: var(--tier-high);
   font-weight: 700;
   font-size: 12px;
-  padding: 2px 8px;
-  border-radius: 10px;
+  letter-spacing: 0.01em;
 }
 
+/* Ingredients flow left-to-right, wrap if needed; no chip backgrounds */
 .recipe-card-ings {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px 6px;
-  padding-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 9px;
+  padding-top: 5px;
   border-top: 1px dashed var(--border);
 }
 .recipe-ing {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  font-size: 10.5px;
-  color: var(--text-muted);
-  padding: 1px 5px 1px 3px;
-  border-radius: 8px;
-  background: var(--surface2);
-  min-width: 0;
-  overflow: hidden;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--text);
+  font-weight: 500;
 }
 .recipe-ing img { width: 14px; height: 14px; flex-shrink: 0; }
-.recipe-ing-empty {
-  /* Reserves grid slot so cards stay uniform height regardless of ing count */
-  height: 18px;
-  visibility: hidden;
-}
-.recipe-ing.owned { color: var(--owned); background: rgba(102,187,106,0.13); }
-.recipe-ing.missing { color: var(--accent-bright); font-weight: 700; background: rgba(121,134,203,0.13); }
-.recipe-ing.excluded { color: var(--dessert); text-decoration: line-through; background: rgba(240,98,146,0.10); }
+.recipe-ing.owned   { color: var(--owned); font-weight: 700; }
+.recipe-ing.missing { color: var(--accent-bright); font-weight: 700; }
+.recipe-ing.excluded { color: var(--dessert); text-decoration: line-through; }
+.recipe-ing-empty { display: none; }
 
 .recipe-card.cookable {
   opacity: 1;
   border-color: var(--owned);
-  background: linear-gradient(180deg, rgba(102,187,106,0.10), var(--card-bg) 70%);
+  background: linear-gradient(180deg, rgba(102,187,106,0.12), var(--card-bg) 70%);
 }
 .recipe-card.cookable .cook-check {
   position: absolute;
-  top: 8px; right: 8px;
+  top: 7px; right: 8px;
   background: var(--owned);
   color: #fff;
-  width: 22px; height: 22px;
+  width: 18px; height: 18px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 13px;
-  box-shadow: 0 2px 6px rgba(102,187,106,0.5);
+  font-size: 11px;
+  box-shadow: 0 1px 4px rgba(102,187,106,0.5);
 }
 .recipe-card.cookable .tier-badge { display: none; }
 .recipe-card.near-cookable {
-  opacity: 0.95;
+  opacity: 1;
   border-color: var(--accent);
 }
 .recipe-card.near-cookable .miss-badge {
   position: absolute;
-  top: 8px; right: 8px;
+  top: 7px; right: 8px;
   background: var(--accent);
   color: #fff;
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 700;
-  padding: 2px 7px;
-  border-radius: 10px;
-  box-shadow: 0 1px 4px rgba(121,134,203,0.45);
+  padding: 1px 6px;
+  border-radius: 9px;
+  box-shadow: 0 1px 3px rgba(121,134,203,0.45);
 }
 .recipe-card.near-cookable .tier-badge { display: none; }
-/* .blocked state no longer rendered — excluded recipes are hidden entirely */
 
 /* ── Tab 3: keeps existing #main structure ──────────────────── */
 #tab-explore { flex-direction: column; }
@@ -1852,11 +1846,7 @@ function buildRecipeCard(r) {
   card.className = `recipe-card ${typeClass(r.type_en)} ${stateCls}`;
   card.dataset.recipe = r.name_en;
 
-  // Pad to 4 slots for uniform 2×2 grid regardless of ingredient count
-  const slots = [...r.ingredients];
-  while (slots.length < 4) slots.push(null);
-  const ingsHTML = slots.map(ing => {
-    if (!ing) return '<span class="recipe-ing-empty"></span>';
+  const ingsHTML = r.ingredients.map(ing => {
     const idx = ingByName[ing.name];
     let cls = 'recipe-ing';
     if (S.owned.has(idx))             cls += ' owned';
