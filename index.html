@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>寶睡料理食材圖 | Pokémon Sleep Recipe Map</title>
+<style>
+/* ── Reset & tokens ───────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0f1117;
+  --surface: #1a1d27;
+  --surface2: #22263a;
+  --border: #2e3248;
+  --text: #e8eaf6;
+  --text-muted: #8b93c4;
+  --accent: #7986cb;
+  --accent-bright: #9fa8da;
+  --curry: #ff8a65;
+  --salad: #81c784;
+  --dessert: #f06292;
+  --tier-high: #ffd54f;
+  --owned: #66bb6a;
+  --cell-size: 14px;
+  --cell-gap: 1px;
+  --font: 'Helvetica Neue', Arial, 'PingFang TC', 'Noto Sans TC', sans-serif;
+}
+html, body { height: 100%; overflow: hidden; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Top bar ──────────────────────────────────────────────────── */
+#topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+#topbar h1 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--accent-bright);
+  white-space: nowrap;
+  margin-right: 8px;
+}
+.tier-filter { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+.tier-filter label { color: var(--text-muted); font-size: 11px; margin-right: 4px; }
+.tier-btn {
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface2);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.15s;
+}
+.tier-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+#search-input {
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 12px;
+  width: 160px;
+}
+#search-input::placeholder { color: var(--text-muted); }
+#owned-count {
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* ── Main layout ──────────────────────────────────────────────── */
+#main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  gap: 0;
+}
+
+/* ── Panel base ───────────────────────────────────────────────── */
+.panel {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+}
+.panel-header {
+  background: var(--surface);
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-bright);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+}
+.panel-body {
+  flex: 1;
+  overflow: auto;
+  padding: 8px;
+}
+
+/* ── Map Panel ────────────────────────────────────────────────── */
+#map-panel { flex: 0 0 auto; min-width: 0; }
+#map-scroll { overflow: auto; flex: 1; }
+
+#matrix-container {
+  display: inline-flex;
+  flex-direction: row;
+  gap: 16px;
+  padding: 4px;
+  min-height: 100%;
+}
+
+#matrix-wrap {
+  flex-shrink: 0;
+}
+
+/* Ingredient label column */
+#ing-labels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cell-gap);
+  align-items: flex-end;
+  padding-top: 40px; /* header row height */
+}
+.ing-label {
+  height: var(--cell-size);
+  line-height: var(--cell-size);
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  padding-right: 4px;
+  cursor: pointer;
+  border-radius: 2px;
+  padding-left: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 0.1s;
+}
+.ing-label:hover, .ing-label.highlight { color: var(--text); background: var(--surface2); }
+.ing-label.owned { color: var(--owned); }
+.ing-label .ing-emoji { font-size: 11px; }
+.ing-label .owned-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--owned);
+  flex-shrink: 0;
+  opacity: 0;
+}
+.ing-label.owned .owned-dot { opacity: 1; }
+
+/* Recipe header row */
+#recipe-header {
+  display: flex;
+  gap: var(--cell-gap);
+  height: 40px;
+  margin-left: 0;
+}
+.recipe-col-label {
+  width: var(--cell-size);
+  height: 40px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  cursor: pointer;
+  position: relative;
+}
+.recipe-col-label span {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-size: 9px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  transform: rotate(180deg);
+  max-height: 38px;
+  overflow: hidden;
+}
+.recipe-col-label.highlight span { color: var(--text); }
+.recipe-col-label.curry span { color: var(--curry); }
+.recipe-col-label.salad span { color: var(--salad); }
+.recipe-col-label.dessert span { color: var(--dessert); }
+
+/* Matrix grid */
+#matrix-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cell-gap);
+}
+.matrix-row {
+  display: flex;
+  gap: var(--cell-gap);
+}
+.matrix-cell {
+  width: var(--cell-size);
+  height: var(--cell-size);
+  border-radius: 1px;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: opacity 0.1s, transform 0.1s;
+}
+.matrix-cell.empty { background: var(--surface2); }
+.matrix-cell.curry  { background: var(--curry); opacity: 0.7; }
+.matrix-cell.salad  { background: var(--salad); opacity: 0.7; }
+.matrix-cell.dessert { background: var(--dessert); opacity: 0.7; }
+.matrix-cell.owned  { opacity: 1; }
+.matrix-cell.highlight { opacity: 1; transform: scale(1.15); }
+.matrix-cell.dimmed { opacity: 0.15; }
+
+/* Co-occurrence mini matrix */
+#coocc-wrap { flex-shrink: 0; }
+#coocc-title { font-size: 10px; color: var(--text-muted); margin-bottom: 4px; padding-top: 40px; }
+#coocc-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.coocc-row { display: flex; gap: 1px; }
+.coocc-cell {
+  width: 10px; height: 10px;
+  border-radius: 1px;
+  cursor: pointer;
+  transition: opacity 0.1s;
+}
+
+/* ── Right column: Recommender + Planner ─────────────────────── */
+#right-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 280px;
+  overflow: hidden;
+}
+
+/* ── Recommender Panel ────────────────────────────────────────── */
+#rec-panel { flex: 1; overflow: hidden; border-bottom: 1px solid var(--border); }
+.ing-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.ing-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+  color: var(--text-muted);
+}
+.ing-chip:hover { border-color: var(--accent); }
+.ing-chip.owned { background: rgba(102,187,106,0.15); border-color: var(--owned); color: var(--owned); }
+.ing-chip img { width: 14px; height: 14px; border-radius: 2px; object-fit: cover; }
+
+.rec-section { margin-top: 8px; }
+.rec-section h3 { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; font-weight: 600; letter-spacing: 0.05em; }
+.rec-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  margin-bottom: 6px;
+}
+.rec-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+.rec-rank {
+  width: 18px; height: 18px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.rec-ing-name { font-weight: 600; font-size: 13px; }
+.rec-gain { color: var(--tier-high); font-size: 11px; }
+.rec-recipes { font-size: 10px; color: var(--text-muted); }
+.rec-recipes span { display: inline-block; margin-right: 4px; }
+.rec-empty {
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 12px 0;
+  text-align: center;
+}
+.rec-complete {
+  color: var(--owned);
+  font-size: 12px;
+  padding: 12px 0;
+  text-align: center;
+}
+
+/* ── Planner Panel ────────────────────────────────────────────── */
+#plan-panel { flex: 0 0 auto; overflow: hidden; }
+.plan-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.plan-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.plan-row label { font-size: 11px; color: var(--text-muted); white-space: nowrap; min-width: 60px; }
+.plan-row select, .plan-row input[type=range] {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 11px;
+}
+.plan-row select { cursor: pointer; }
+.plan-summary {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  margin-bottom: 8px;
+}
+.plan-summary p { font-size: 12px; margin-bottom: 4px; }
+.plan-summary strong { color: var(--accent-bright); }
+.plan-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.plan-badge {
+  padding: 2px 7px;
+  border-radius: 10px;
+  font-size: 10px;
+  border: 1px solid;
+}
+.plan-badge.have { border-color: var(--owned); color: var(--owned); }
+.plan-badge.need { border-color: var(--accent); color: var(--accent-bright); }
+.plan-badge.missing { border-color: var(--dessert); color: var(--dessert); }
+
+/* ── Construction Kit ─────────────────────────────────────────── */
+#ck-toggle {
+  position: fixed;
+  bottom: 16px;
+  right: 16px;
+  z-index: 100;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  padding: 6px 14px;
+  font-size: 12px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+#ck-panel {
+  position: fixed;
+  bottom: 52px;
+  right: 16px;
+  z-index: 99;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  width: 240px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+  display: none;
+}
+#ck-panel.open { display: block; }
+#ck-panel h4 { font-size: 11px; color: var(--accent-bright); margin-bottom: 8px; letter-spacing: 0.05em; text-transform: uppercase; }
+.ck-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.ck-row label { font-size: 10px; color: var(--text-muted); flex: 1; }
+.ck-row input[type=range] { width: 80px; flex-shrink: 0; }
+.ck-row span { font-size: 10px; color: var(--text); width: 24px; text-align: right; }
+.ck-row input[type=color] { width: 28px; height: 20px; border: none; border-radius: 2px; cursor: pointer; }
+
+/* ── Tooltip ──────────────────────────────────────────────────── */
+#tooltip {
+  position: fixed;
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11px;
+  max-width: 220px;
+  pointer-events: none;
+  z-index: 200;
+  display: none;
+  line-height: 1.5;
+}
+#tooltip.visible { display: block; }
+#tooltip .tt-title { font-weight: 700; margin-bottom: 4px; }
+#tooltip .tt-type { margin-bottom: 2px; }
+.tt-curry { color: var(--curry); }
+.tt-salad { color: var(--salad); }
+.tt-dessert { color: var(--dessert); }
+
+/* ── Mobile responsive ────────────────────────────────────────── */
+@media (max-width: 768px) {
+  html, body { overflow: auto; height: auto; }
+  #main { flex-direction: column; overflow: visible; }
+  .panel { border-right: none; border-bottom: 1px solid var(--border); }
+  #right-col { max-width: 100%; min-width: 0; }
+  #map-panel { width: 100%; }
+  #map-scroll { overflow-x: auto; }
+  #ck-panel { width: calc(100vw - 32px); right: 8px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div id="topbar">
+  <h1>🍱 寶睡料理食材圖</h1>
+  <div class="tier-filter">
+    <label>階級</label>
+    <button class="tier-btn" data-tier="0">全部</button>
+    <button class="tier-btn" data-tier="0.25">+25%↑</button>
+    <button class="tier-btn active" data-tier="0.48">+48%↑</button>
+    <button class="tier-btn" data-tier="0.61">+61%↑</button>
+    <button class="tier-btn" data-tier="0.78">+78%↑</button>
+  </div>
+  <input id="search-input" type="text" placeholder="食材 / 料理名…">
+  <span id="owned-count">已有 0 / 19 食材</span>
+</div>
+
+<!-- Main -->
+<div id="main">
+
+  <!-- Map Panel -->
+  <div class="panel" id="map-panel">
+    <div class="panel-header">
+      <span>🗺 食材 × 料理矩陣</span>
+      <span id="map-recipe-count" style="font-weight:400;color:var(--text-muted)"></span>
+    </div>
+    <div id="map-scroll" class="panel-body" style="padding:4px;">
+      <div id="matrix-container">
+        <div id="ing-col">
+          <div id="ing-labels"></div>
+        </div>
+        <div id="matrix-wrap">
+          <div id="recipe-header"></div>
+          <div id="matrix-grid"></div>
+        </div>
+        <div id="coocc-wrap">
+          <div id="coocc-title">食材共現 (19×19)</div>
+          <div id="coocc-grid"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right column -->
+  <div id="right-col">
+
+    <!-- Recommender Panel -->
+    <div class="panel" id="rec-panel">
+      <div class="panel-header">💡 下一個食材推薦</div>
+      <div class="panel-body">
+        <div class="ing-picker" id="ing-picker"></div>
+        <div class="rec-section">
+          <h3>推薦（邊際增益 ↓）</h3>
+          <div id="rec-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Planner Panel -->
+    <div class="panel" id="plan-panel" style="border-right:none;">
+      <div class="panel-header">🎯 畢業路徑規劃</div>
+      <div class="panel-body">
+        <div class="plan-controls">
+          <div class="plan-row">
+            <label>目標階級</label>
+            <select id="plan-tier">
+              <option value="0.48">+48%↑</option>
+              <option value="0.61">+61%↑</option>
+              <option value="0.78" selected>+78%↑（頂級）</option>
+            </select>
+          </div>
+          <div class="plan-row">
+            <label>每系列</label>
+            <select id="plan-breadth">
+              <option value="1" selected>最高 1 道</option>
+              <option value="3">前 3 道</option>
+              <option value="99">全部</option>
+            </select>
+          </div>
+        </div>
+        <div class="plan-summary" id="plan-summary"></div>
+        <div class="plan-badges" id="plan-badges"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Tooltip -->
+<div id="tooltip">
+  <div class="tt-title" id="tt-title"></div>
+  <div class="tt-type" id="tt-type"></div>
+  <div id="tt-body"></div>
+</div>
+
+<!-- Construction Kit -->
+<button id="ck-toggle">⚙ 調整</button>
+<div id="ck-panel">
+  <h4>Construction Kit</h4>
+  <div class="ck-row">
+    <label>格子大小</label>
+    <input type="range" id="ck-cell" min="8" max="24" value="14">
+    <span id="ck-cell-val">14</span>
+  </div>
+  <div class="ck-row">
+    <label>間距</label>
+    <input type="range" id="ck-gap" min="0" max="4" value="1">
+    <span id="ck-gap-val">1</span>
+  </div>
+  <div class="ck-row">
+    <label>咖哩色</label>
+    <input type="color" id="ck-curry" value="#ff8a65">
+  </div>
+  <div class="ck-row">
+    <label>沙拉色</label>
+    <input type="color" id="ck-salad" value="#81c784">
+  </div>
+  <div class="ck-row">
+    <label>點心色</label>
+    <input type="color" id="ck-dessert" value="#f06292">
+  </div>
+  <div class="ck-row">
+    <label>已有色</label>
+    <input type="color" id="ck-owned" value="#66bb6a">
+  </div>
+</div>
+
+<script>
+/* ── State ─────────────────────────────────────────────────────── */
+const S = {
+  data: null,
+  minTier: 0.48,        // active tier filter
+  owned: new Set(),     // owned ingredient indices
+  highlight: null,      // {type:'ingredient'|'recipe', idx:number}
+  search: '',
+};
+
+/* ── Load data ─────────────────────────────────────────────────── */
+async function loadData() {
+  const res = await fetch('data.json');
+  S.data = await res.json();
+  init();
+}
+
+/* ── Helpers ────────────────────────────────────────────────────── */
+function typeClass(type_en) {
+  return type_en === 'curry' ? 'curry' : type_en === 'salad' ? 'salad' : 'dessert';
+}
+
+function ingEmoji(name) {
+  const map = {
+    '粗枝大蔥':'🌿','品鮮蘑菇':'🍄','特選蛋':'🥚','窩心洋芋':'🥔','特選蘋果':'🍎',
+    '火辣香草':'🌶️','豆製肉':'🌭','哞哞鮮奶':'🥛','甜甜蜜':'🍯','純粹油':'🫙',
+    '暖暖薑':'🫚','好眠番茄':'🍅','放鬆可可':'🍫','美味尾巴':'🐟','萌綠大豆':'🫘',
+    '萌綠玉米':'🌽','醒腦咖啡豆':'☕','沉甸甸南瓜':'🎃','嫩亮酪梨':'🥑',
+  };
+  return map[name] || '🍱';
+}
+
+function filteredRecipes() {
+  return S.data.recipes.filter(r =>
+    !r.is_placeholder &&
+    r.tier_bonus >= S.minTier &&
+    (S.search === '' ||
+      r.name.includes(S.search) ||
+      r.ingredients.some(i => i.name.includes(S.search)))
+  );
+}
+
+function filteredRecipeIndices() {
+  const recipes = S.data.recipes;
+  const colOrd = S.data.col_order;
+  return colOrd.filter(j =>
+    !recipes[j].is_placeholder &&
+    recipes[j].tier_bonus >= S.minTier &&
+    (S.search === '' ||
+      recipes[j].name.includes(S.search) ||
+      recipes[j].ingredients.some(i => i.name.includes(S.search)))
+  );
+}
+
+/* ── Tooltip ────────────────────────────────────────────────────── */
+const tooltip = document.getElementById('tooltip');
+const ttTitle = document.getElementById('tt-title');
+const ttType  = document.getElementById('tt-type');
+const ttBody  = document.getElementById('tt-body');
+
+function showTooltip(e, title, typeStr, body) {
+  ttTitle.textContent = title;
+  ttType.textContent = typeStr;
+  ttType.className = 'tt-type ' + (typeStr.includes('咖') ? 'tt-curry' : typeStr.includes('沙') ? 'tt-salad' : typeStr.includes('點') ? 'tt-dessert' : '');
+  ttBody.innerHTML = body;
+  tooltip.classList.add('visible');
+  moveTooltip(e);
+}
+function hideTooltip() { tooltip.classList.remove('visible'); }
+function moveTooltip(e) {
+  const x = e.clientX + 12, y = e.clientY + 12;
+  tooltip.style.left = Math.min(x, window.innerWidth - 240) + 'px';
+  tooltip.style.top  = Math.min(y, window.innerHeight - 120) + 'px';
+}
+document.addEventListener('mousemove', e => { if (tooltip.classList.contains('visible')) moveTooltip(e); });
+
+/* ── Matrix ─────────────────────────────────────────────────────── */
+let matrixIngCols = []; // rendered ingredient column indices (in display order)
+let matrixRecCols = []; // rendered recipe column indices (in display order)
+
+function buildMatrix() {
+  const { ingredients, recipes, incidence, row_order, cooccurrence } = S.data;
+  const colIndices = filteredRecipeIndices();
+  matrixIngCols = row_order; // all 19 ingredients in spectral order
+  matrixRecCols = colIndices;
+
+  // Recipe header
+  const recHeader = document.getElementById('recipe-header');
+  recHeader.innerHTML = '';
+  colIndices.forEach(j => {
+    const r = recipes[j];
+    const div = document.createElement('div');
+    div.className = `recipe-col-label ${typeClass(r.type_en)}`;
+    div.dataset.ridx = j;
+    div.innerHTML = `<span>${r.name}</span>`;
+    div.addEventListener('mouseenter', e => {
+      highlightRecipe(j);
+      showTooltip(e, r.name, r.type,
+        `<b>${(r.tier_bonus * 100).toFixed(0)}%</b> · ${r.score_final.toLocaleString()}分<br>` +
+        r.ingredients.map(i => `${i.name}×${i.count}`).join('、'));
+    });
+    div.addEventListener('mouseleave', () => { clearHighlight(); hideTooltip(); });
+    recHeader.appendChild(div);
+  });
+
+  // Ingredient labels
+  const ingLabels = document.getElementById('ing-labels');
+  ingLabels.innerHTML = '';
+  row_order.forEach(i => {
+    const ing = ingredients[i];
+    const div = document.createElement('div');
+    div.className = 'ing-label' + (S.owned.has(i) ? ' owned' : '');
+    div.dataset.iidx = i;
+    div.innerHTML = `<span class="owned-dot"></span><span class="ing-emoji">${ingEmoji(ing.name)}</span>${ing.name}`;
+    div.addEventListener('click', () => { toggleOwned(i); });
+    div.addEventListener('mouseenter', e => {
+      highlightIngredient(i);
+      const freq = incidence[i].reduce((s,v)=>s+v,0);
+      showTooltip(e, ing.name, '',
+        `${ing.base_score}分/個 · 出現 ${freq} 道料理<br>${ing.name_en}`);
+    });
+    div.addEventListener('mouseleave', () => { clearHighlight(); hideTooltip(); });
+    ingLabels.appendChild(div);
+  });
+
+  // Matrix grid
+  const grid = document.getElementById('matrix-grid');
+  grid.innerHTML = '';
+  row_order.forEach(i => {
+    const row = document.createElement('div');
+    row.className = 'matrix-row';
+    row.dataset.iidx = i;
+    colIndices.forEach(j => {
+      const cell = document.createElement('div');
+      const used = incidence[i][j];
+      const r = recipes[j];
+      cell.className = `matrix-cell ${used ? typeClass(r.type_en) : 'empty'}${S.owned.has(i) && used ? ' owned' : ''}`;
+      cell.dataset.iidx = i;
+      cell.dataset.ridx = j;
+      if (used) {
+        const ingData = r.ingredients.find(x => x.name === ingredients[i].name);
+        cell.addEventListener('mouseenter', e => {
+          highlightBoth(i, j);
+          showTooltip(e, r.name, r.type,
+            `${ingredients[i].name}×${ingData?.count ?? '?'}<br>${(r.tier_bonus*100).toFixed(0)}% · ${r.score_final.toLocaleString()}分`);
+        });
+        cell.addEventListener('mouseleave', () => { clearHighlight(); hideTooltip(); });
+        cell.addEventListener('click', () => { toggleOwned(i); });
+      }
+      row.appendChild(cell);
+    });
+    grid.appendChild(row);
+  });
+
+  document.getElementById('map-recipe-count').textContent = `${colIndices.length} 道料理`;
+
+  buildCooccurrence();
+}
+
+/* ── Co-occurrence ──────────────────────────────────────────────── */
+function buildCooccurrence() {
+  const { cooccurrence, row_order, ingredients } = S.data;
+  const grid = document.getElementById('coocc-grid');
+  grid.innerHTML = '';
+  const maxVal = Math.max(...row_order.map(i => cooccurrence[i][i]));
+
+  row_order.forEach(i => {
+    const row = document.createElement('div');
+    row.className = 'coocc-row';
+    row_order.forEach(j => {
+      const cell = document.createElement('div');
+      const v = cooccurrence[i][j];
+      const alpha = i === j ? 0.25 : Math.max(0.05, v / maxVal * 0.9);
+      cell.className = 'coocc-cell';
+      cell.style.background = `rgba(121,134,203,${alpha})`;
+      cell.dataset.i = i; cell.dataset.j = j;
+      cell.title = `${ingredients[i].name} × ${ingredients[j].name}: ${v} 道`;
+      cell.addEventListener('mouseenter', () => highlightIngredient(i));
+      cell.addEventListener('mouseleave', () => clearHighlight());
+      row.appendChild(cell);
+    });
+    grid.appendChild(row);
+  });
+}
+
+/* ── Highlighting ───────────────────────────────────────────────── */
+function highlightIngredient(idx) {
+  S.highlight = { type: 'ingredient', idx };
+  document.querySelectorAll('.ing-label').forEach(el => {
+    el.classList.toggle('highlight', parseInt(el.dataset.iidx) === idx);
+  });
+  document.querySelectorAll('.matrix-cell').forEach(el => {
+    const i = parseInt(el.dataset.iidx), j = parseInt(el.dataset.ridx);
+    if (el.classList.contains('empty')) { el.classList.add('dimmed'); return; }
+    el.classList.toggle('highlight', i === idx);
+    el.classList.toggle('dimmed', i !== idx);
+  });
+  updatePicker();
+}
+
+function highlightRecipe(jdx) {
+  S.highlight = { type: 'recipe', idx: jdx };
+  document.querySelectorAll('.recipe-col-label').forEach(el => {
+    el.classList.toggle('highlight', parseInt(el.dataset.ridx) === jdx);
+  });
+  document.querySelectorAll('.matrix-cell').forEach(el => {
+    const j = parseInt(el.dataset.ridx);
+    if (el.classList.contains('empty')) { el.classList.add('dimmed'); return; }
+    el.classList.toggle('highlight', j === jdx);
+    el.classList.toggle('dimmed', j !== jdx);
+  });
+}
+
+function highlightBoth(i, j) {
+  highlightIngredient(i);
+  document.querySelectorAll(`.matrix-cell[data-ridx="${j}"]`).forEach(el => {
+    if (!el.classList.contains('empty')) el.classList.add('highlight');
+  });
+}
+
+function clearHighlight() {
+  S.highlight = null;
+  document.querySelectorAll('.ing-label').forEach(el => el.classList.remove('highlight'));
+  document.querySelectorAll('.recipe-col-label').forEach(el => el.classList.remove('highlight'));
+  document.querySelectorAll('.matrix-cell').forEach(el => {
+    el.classList.remove('highlight', 'dimmed');
+  });
+  updatePicker();
+}
+
+/* ── Owned / Picker ─────────────────────────────────────────────── */
+function toggleOwned(i) {
+  if (S.owned.has(i)) S.owned.delete(i); else S.owned.add(i);
+  updateOwnedDisplay();
+  buildRecommender();
+  buildPlanner();
+  saveHash();
+}
+
+function updateOwnedDisplay() {
+  document.querySelectorAll('.ing-label').forEach(el => {
+    el.classList.toggle('owned', S.owned.has(parseInt(el.dataset.iidx)));
+  });
+  document.querySelectorAll('.matrix-cell').forEach(el => {
+    const i = parseInt(el.dataset.iidx);
+    el.classList.toggle('owned', S.owned.has(i) && !el.classList.contains('empty'));
+  });
+  document.getElementById('owned-count').textContent = `已有 ${S.owned.size} / 19 食材`;
+  updatePicker();
+}
+
+function updatePicker() {
+  document.querySelectorAll('.ing-chip').forEach(el => {
+    el.classList.toggle('owned', S.owned.has(parseInt(el.dataset.iidx)));
+  });
+}
+
+function buildPicker() {
+  const { ingredients, row_order } = S.data;
+  const picker = document.getElementById('ing-picker');
+  picker.innerHTML = '';
+  row_order.forEach(i => {
+    const ing = ingredients[i];
+    const chip = document.createElement('div');
+    chip.className = 'ing-chip' + (S.owned.has(i) ? ' owned' : '');
+    chip.dataset.iidx = i;
+    chip.title = ing.name_en;
+    chip.innerHTML = `${ingEmoji(ing.name)}<span>${ing.name}</span>`;
+    chip.addEventListener('click', () => toggleOwned(i));
+    chip.addEventListener('mouseenter', () => highlightIngredient(i));
+    chip.addEventListener('mouseleave', () => clearHighlight());
+    picker.appendChild(chip);
+  });
+}
+
+/* ── Recommender ────────────────────────────────────────────────── */
+function buildRecommender() {
+  const { ingredients, recipes, incidence } = S.data;
+  const recList = document.getElementById('rec-list');
+
+  if (S.owned.size === 0) {
+    recList.innerHTML = '<div class="rec-empty">⬆ 先點選你已有的食材</div>';
+    return;
+  }
+  if (S.owned.size >= 19) {
+    recList.innerHTML = '<div class="rec-complete">🎉 全部 19 種食材已收集！</div>';
+    return;
+  }
+
+  const activeRecipes = recipes.filter(r =>
+    !r.is_placeholder && r.tier_bonus >= S.minTier
+  );
+
+  // Compute completion before adding each candidate
+  function completion(ownedSet, recipe) {
+    return recipe.ingredients.every(ing => {
+      const idx = ingredients.findIndex(x => x.name === ing.name);
+      return ownedSet.has(idx);
+    }) ? 1 : 0;
+  }
+  function fracCompletion(ownedSet, recipe) {
+    const total = recipe.ingredients.length;
+    const have = recipe.ingredients.filter(ing => {
+      const idx = ingredients.findIndex(x => x.name === ing.name);
+      return ownedSet.has(idx);
+    }).length;
+    return have / total;
+  }
+
+  const currentComplete = new Set(
+    activeRecipes.filter(r => completion(S.owned, r)).map(r => r.name)
+  );
+
+  // Score each candidate ingredient
+  const candidates = [];
+  for (let ci = 0; ci < 19; ci++) {
+    if (S.owned.has(ci)) continue;
+    const trial = new Set(S.owned);
+    trial.add(ci);
+
+    let binaryGain = 0;
+    let fracGain = 0;
+    const newRecipes = [];
+
+    for (const r of activeRecipes) {
+      const wasDone = completion(S.owned, r);
+      const nowDone = completion(trial, r);
+      if (!wasDone && nowDone) {
+        binaryGain++;
+        newRecipes.push(r);
+      }
+      fracGain += (fracCompletion(trial, r) - fracCompletion(S.owned, r)) * (r.score_final / 10000);
+    }
+
+    candidates.push({ idx: ci, binaryGain, fracGain, newRecipes });
+  }
+
+  // Sort by binary gain desc, then fracGain
+  candidates.sort((a, b) => b.binaryGain - a.binaryGain || b.fracGain - a.fracGain);
+
+  recList.innerHTML = '';
+  const top = candidates.slice(0, 3);
+
+  if (top[0].binaryGain === 0 && top[0].fracGain < 0.001) {
+    recList.innerHTML = '<div class="rec-empty">目前已選食材已能解鎖此階級所有可解料理。</div>';
+    return;
+  }
+
+  top.forEach((c, rank) => {
+    const ing = ingredients[c.idx];
+    const card = document.createElement('div');
+    card.className = 'rec-card';
+    card.dataset.iidx = c.idx;
+
+    const recipePreview = c.newRecipes.slice(0, 5)
+      .map(r => `<span class="${typeClass(r.type_en)}">${r.name}</span>`)
+      .join('');
+    const more = c.newRecipes.length > 5 ? `<span>…+${c.newRecipes.length - 5}</span>` : '';
+
+    card.innerHTML = `
+      <div class="rec-card-header">
+        <div class="rec-rank">${rank + 1}</div>
+        <span class="rec-ing-name">${ingEmoji(ing.name)} ${ing.name}</span>
+        <span class="rec-gain">+${c.binaryGain} 道</span>
+      </div>
+      <div class="rec-recipes">${recipePreview}${more}</div>`;
+
+    card.addEventListener('mouseenter', () => highlightIngredient(c.idx));
+    card.addEventListener('mouseleave', () => clearHighlight());
+    card.addEventListener('click', () => toggleOwned(c.idx));
+    recList.appendChild(card);
+  });
+}
+
+/* ── Planner ────────────────────────────────────────────────────── */
+function buildPlanner() {
+  const { ingredients, recipes } = S.data;
+  const tierSel    = parseFloat(document.getElementById('plan-tier').value);
+  const breadth    = parseInt(document.getElementById('plan-breadth').value);
+  const summary    = document.getElementById('plan-summary');
+  const badgesEl   = document.getElementById('plan-badges');
+
+  const types = ['curry', 'salad', 'dessert'];
+  const targetRecipes = [];
+  for (const t of types) {
+    const pool = recipes
+      .filter(r => !r.is_placeholder && r.type_en === t && r.tier_bonus >= tierSel)
+      .sort((a, b) => b.score_final - a.score_final)
+      .slice(0, breadth);
+    targetRecipes.push(...pool);
+  }
+
+  if (targetRecipes.length === 0) {
+    summary.innerHTML = '<p>此組合沒有符合的料理，請降低目標階級。</p>';
+    badgesEl.innerHTML = '';
+    return;
+  }
+
+  // Union of required ingredients
+  const needNames = new Set();
+  for (const r of targetRecipes) {
+    for (const ing of r.ingredients) needNames.add(ing.name);
+  }
+
+  const needIndices = [...needNames].map(name =>
+    ingredients.findIndex(x => x.name === name)
+  ).filter(i => i >= 0);
+
+  const have = needIndices.filter(i => S.owned.has(i));
+  const missing = needIndices.filter(i => !S.owned.has(i));
+
+  summary.innerHTML = `
+    <p>目標：<strong>${targetRecipes.length} 道料理</strong>（${types.map(t => ({curry:'咖哩/濃湯',salad:'沙拉',dessert:'點心/飲料'}[t])).join('、')}）</p>
+    <p>需要食材：<strong>${needIndices.length} 種</strong>　已有 <strong style="color:var(--owned)">${have.length}</strong> / 還缺 <strong style="color:var(--dessert)">${missing.length}</strong></p>`;
+
+  badgesEl.innerHTML = '';
+  for (const i of needIndices) {
+    const ing = ingredients[i];
+    const badge = document.createElement('div');
+    const cls = S.owned.has(i) ? 'have' : 'missing';
+    badge.className = `plan-badge ${cls}`;
+    badge.textContent = `${ingEmoji(ing.name)} ${ing.name}`;
+    badge.style.cursor = 'pointer';
+    badge.addEventListener('click', () => toggleOwned(i));
+    badge.addEventListener('mouseenter', () => highlightIngredient(i));
+    badge.addEventListener('mouseleave', () => clearHighlight());
+    badgesEl.appendChild(badge);
+  }
+}
+
+/* ── Construction Kit ────────────────────────────────────────────── */
+function initCK() {
+  const ckToggle = document.getElementById('ck-toggle');
+  const ckPanel  = document.getElementById('ck-panel');
+  ckToggle.addEventListener('click', () => ckPanel.classList.toggle('open'));
+
+  function bindCSSVar(inputId, valId, cssVar, suffix = 'px') {
+    const input = document.getElementById(inputId);
+    const val   = document.getElementById(valId);
+    input.addEventListener('input', () => {
+      document.documentElement.style.setProperty(cssVar, input.value + suffix);
+      if (val) val.textContent = input.value;
+      buildMatrix();
+    });
+  }
+  bindCSSVar('ck-cell', 'ck-cell-val', '--cell-size');
+  bindCSSVar('ck-gap',  'ck-gap-val',  '--cell-gap');
+
+  function bindColor(inputId, cssVar) {
+    const input = document.getElementById(inputId);
+    input.addEventListener('input', () => {
+      document.documentElement.style.setProperty(cssVar, input.value);
+    });
+  }
+  bindColor('ck-curry',   '--curry');
+  bindColor('ck-salad',   '--salad');
+  bindColor('ck-dessert', '--dessert');
+  bindColor('ck-owned',   '--owned');
+}
+
+/* ── URL hash state ──────────────────────────────────────────────── */
+function saveHash() {
+  const params = new URLSearchParams();
+  if (S.owned.size > 0) params.set('owned', [...S.owned].sort().join(','));
+  if (S.minTier !== 0.48) params.set('tier', S.minTier);
+  const hash = params.toString();
+  history.replaceState(null, '', hash ? '#' + hash : window.location.pathname);
+}
+
+function loadHash() {
+  const hash = window.location.hash.slice(1);
+  if (!hash) return;
+  const params = new URLSearchParams(hash);
+  if (params.get('owned')) {
+    params.get('owned').split(',').map(Number).forEach(i => S.owned.add(i));
+  }
+  if (params.get('tier')) S.minTier = parseFloat(params.get('tier'));
+}
+
+/* ── Tier filter ─────────────────────────────────────────────────── */
+function initTierFilter() {
+  document.querySelectorAll('.tier-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tier-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      S.minTier = parseFloat(btn.dataset.tier);
+      buildMatrix();
+      buildRecommender();
+      buildPlanner();
+      saveHash();
+    });
+  });
+  // sync initial state
+  document.querySelectorAll('.tier-btn').forEach(btn => {
+    btn.classList.toggle('active', parseFloat(btn.dataset.tier) === S.minTier);
+  });
+}
+
+/* ── Search ──────────────────────────────────────────────────────── */
+function initSearch() {
+  document.getElementById('search-input').addEventListener('input', e => {
+    S.search = e.target.value.trim();
+    buildMatrix();
+    buildRecommender();
+  });
+}
+
+/* ── Init ────────────────────────────────────────────────────────── */
+function init() {
+  loadHash();
+  initTierFilter();
+  initSearch();
+  initCK();
+  buildMatrix();
+  buildPicker();
+  buildRecommender();
+  buildPlanner();
+  updateOwnedDisplay();
+
+  document.getElementById('plan-tier').addEventListener('change', () => { buildPlanner(); saveHash(); });
+  document.getElementById('plan-breadth').addEventListener('change', () => buildPlanner());
+}
+
+loadData();
+</script>
+</body>
+</html>

@@ -19,6 +19,9 @@ Exits with code 0 on success; prints what it sees on each viewport.
 import sys
 import os
 import subprocess
+import threading
+import http.server
+import socket
 from pathlib import Path
 from datetime import datetime
 
@@ -36,6 +39,27 @@ VIEWPORTS = [
     ("mobile",          375, 812),
     ("panel_top",      1440, 900),   # same as wide but explicit scroll-to-top
 ]
+
+
+def find_free_port() -> int:
+    with socket.socket() as s:
+        s.bind(('', 0))
+        return s.getsockname()[1]
+
+
+def start_server(root: Path) -> tuple[int, threading.Thread]:
+    port = find_free_port()
+    handler = http.server.SimpleHTTPRequestHandler
+    httpd = http.server.HTTPServer(('localhost', port), handler)
+    httpd.timeout = 1
+
+    def serve():
+        os.chdir(root)
+        httpd.serve_forever()
+
+    t = threading.Thread(target=serve, daemon=True)
+    t.start()
+    return port, httpd
 
 
 def git_hash() -> str:
@@ -72,11 +96,15 @@ def run(html_path: str, out_dir: str | None = None):
     out = Path(__file__).parent.parent / "screenshots" / label
     out.mkdir(parents=True, exist_ok=True)
 
-    file_url = html_path.as_uri()
+    # Start local HTTP server so fetch() works (file:// blocks CORS)
+    root = html_path.parent
+    port, httpd = start_server(root)
+    rel = html_path.relative_to(root)
+    page_url = f"http://localhost:{port}/{rel}"
 
     print(f"\n=== visual_check.py ===")
     print(f"File : {html_path}")
-    print(f"URL  : {file_url}")
+    print(f"URL  : {page_url}")
     print(f"Out  : {out}")
     print(f"Git  : {git_hash()}")
     print()
@@ -88,7 +116,7 @@ def run(html_path: str, out_dir: str | None = None):
 
         for name, width, height in VIEWPORTS:
             page = browser.new_page(viewport={"width": width, "height": height})
-            page.goto(file_url, wait_until="networkidle", timeout=15000)
+            page.goto(page_url, wait_until="networkidle", timeout=15000)
 
             if name == "panel_top":
                 page.evaluate("window.scrollTo(0, 0)")
@@ -102,6 +130,8 @@ def run(html_path: str, out_dir: str | None = None):
             page.close()
 
         browser.close()
+
+    httpd.shutdown()
 
     # Write manifest
     manifest_path = out / "manifest.txt"
