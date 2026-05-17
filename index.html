@@ -183,11 +183,26 @@ body {
   width: var(--cell-size);
   height: 40px;
   display: flex;
-  align-items: flex-end;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
   cursor: pointer;
   position: relative;
 }
+/* Type colour bar at the very top of each recipe column */
+.recipe-col-label::before {
+  content: '';
+  width: 100%;
+  height: 3px;
+  border-radius: 1px;
+  flex-shrink: 0;
+  margin-bottom: 1px;
+  opacity: 0.6;
+}
+.recipe-col-label.curry::before  { background: var(--curry); }
+.recipe-col-label.salad::before  { background: var(--salad); }
+.recipe-col-label.dessert::before { background: var(--dessert); }
+.recipe-col-label.highlight::before { opacity: 1; }
 .recipe-col-label span {
   writing-mode: vertical-rl;
   text-orientation: mixed;
@@ -195,7 +210,7 @@ body {
   color: var(--text-muted);
   white-space: nowrap;
   transform: rotate(180deg);
-  max-height: 38px;
+  max-height: 34px;
   overflow: hidden;
 }
 .recipe-col-label.highlight span { color: var(--text); }
@@ -848,7 +863,7 @@ function buildPicker() {
 
 /* ── Recommender ────────────────────────────────────────────────── */
 function buildRecommender() {
-  const { ingredients, recipes, incidence } = S.data;
+  const { ingredients, recipes } = S.data;
   const recList = document.getElementById('rec-list');
 
   if (S.owned.size === 0) {
@@ -864,25 +879,18 @@ function buildRecommender() {
     !r.is_placeholder && r.tier_bonus >= S.minTier
   );
 
-  // Compute completion before adding each candidate
+  // Build name→index map once (avoid O(n) findIndex in inner loop)
+  const ingByName = Object.fromEntries(ingredients.map((x, i) => [x.name, i]));
+
   function completion(ownedSet, recipe) {
-    return recipe.ingredients.every(ing => {
-      const idx = ingredients.findIndex(x => x.name === ing.name);
-      return ownedSet.has(idx);
-    }) ? 1 : 0;
+    return recipe.ingredients.every(ing => ownedSet.has(ingByName[ing.name]));
   }
   function fracCompletion(ownedSet, recipe) {
     const total = recipe.ingredients.length;
-    const have = recipe.ingredients.filter(ing => {
-      const idx = ingredients.findIndex(x => x.name === ing.name);
-      return ownedSet.has(idx);
-    }).length;
+    if (!total) return 0;
+    const have = recipe.ingredients.filter(ing => ownedSet.has(ingByName[ing.name])).length;
     return have / total;
   }
-
-  const currentComplete = new Set(
-    activeRecipes.filter(r => completion(S.owned, r)).map(r => r.name)
-  );
 
   // Score each candidate ingredient
   const candidates = [];
@@ -898,25 +906,28 @@ function buildRecommender() {
     for (const r of activeRecipes) {
       const wasDone = completion(S.owned, r);
       const nowDone = completion(trial, r);
-      if (!wasDone && nowDone) {
-        binaryGain++;
-        newRecipes.push(r);
-      }
+      if (!wasDone && nowDone) { binaryGain++; newRecipes.push(r); }
       fracGain += (fracCompletion(trial, r) - fracCompletion(S.owned, r)) * (r.score_final / 10000);
     }
 
     candidates.push({ idx: ci, binaryGain, fracGain, newRecipes });
   }
 
-  // Sort by binary gain desc, then fracGain
   candidates.sort((a, b) => b.binaryGain - a.binaryGain || b.fracGain - a.fracGain);
 
   recList.innerHTML = '';
   const top = candidates.slice(0, 3);
+  const anyGain = top[0].binaryGain > 0 || top[0].fracGain > 0.001;
 
-  if (top[0].binaryGain === 0 && top[0].fracGain < 0.001) {
-    recList.innerHTML = '<div class="rec-empty">目前已選食材已能解鎖此階級所有可解料理。</div>';
+  if (!anyGain) {
+    recList.innerHTML = '<div class="rec-empty">此階級所有可解料理已能解鎖。試試調高階級篩選。</div>';
     return;
+  }
+
+  // If all binary gains are 0, show frac mode header
+  const allBinaryZero = top.every(c => c.binaryGain === 0);
+  if (allBinaryZero) {
+    recList.innerHTML = '<div class="rec-empty" style="text-align:left;margin-bottom:6px;">還差多道食材才能完成料理。以下推薦「最能提升完成度」的食材：</div>';
   }
 
   top.forEach((c, rank) => {
@@ -925,18 +936,25 @@ function buildRecommender() {
     card.className = 'rec-card';
     card.dataset.iidx = c.idx;
 
+    const gainLabel = c.binaryGain > 0
+      ? `<span class="rec-gain">+${c.binaryGain} 道</span>`
+      : `<span class="rec-gain" style="color:var(--accent-bright)">+${c.fracGain.toFixed(1)} 進度</span>`;
+
     const recipePreview = c.newRecipes.slice(0, 5)
       .map(r => `<span class="${typeClass(r.type_en)}">${r.name}</span>`)
       .join('');
     const more = c.newRecipes.length > 5 ? `<span>…+${c.newRecipes.length - 5}</span>` : '';
+    const recipeOrProgress = c.newRecipes.length > 0
+      ? `<div class="rec-recipes">${recipePreview}${more}</div>`
+      : `<div class="rec-recipes" style="color:var(--text-muted)">提升 ${(c.fracGain * 10000 / Math.max(activeRecipes.length, 1)).toFixed(0)}% 平均完成度</div>`;
 
     card.innerHTML = `
       <div class="rec-card-header">
         <div class="rec-rank">${rank + 1}</div>
         <span class="rec-ing-name">${ingEmoji(ing.name)} ${ing.name}</span>
-        <span class="rec-gain">+${c.binaryGain} 道</span>
+        ${gainLabel}
       </div>
-      <div class="rec-recipes">${recipePreview}${more}</div>`;
+      ${recipeOrProgress}`;
 
     card.addEventListener('mouseenter', () => highlightIngredient(c.idx));
     card.addEventListener('mouseleave', () => clearHighlight());
