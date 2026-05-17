@@ -122,7 +122,7 @@ body {
 }
 
 /* ── Map Panel ────────────────────────────────────────────────── */
-#map-panel { flex: 0 0 auto; min-width: 0; }
+#map-panel { flex: 1 1 50%; min-width: 0; max-width: 60%; }
 #map-scroll { overflow: auto; flex: 1; }
 
 #matrix-container {
@@ -205,11 +205,11 @@ body {
 .recipe-col-label.highlight::before { opacity: 1; }
 .recipe-col-label span {
   writing-mode: vertical-rl;
-  text-orientation: mixed;
+  text-orientation: upright;
   font-size: 9px;
   color: var(--text-muted);
   white-space: nowrap;
-  transform: rotate(180deg);
+  letter-spacing: -1px;
   max-height: 34px;
   overflow: hidden;
 }
@@ -609,6 +609,7 @@ function typeClass(type_en) {
 }
 
 function ingEmoji(name) {
+  // Emergency fallback only — primary path is ingIconHTML().
   const map = {
     '粗枝大蔥':'🌿','品鮮蘑菇':'🍄','特選蛋':'🥚','窩心洋芋':'🥔','特選蘋果':'🍎',
     '火辣香草':'🌶️','豆製肉':'🌭','哞哞鮮奶':'🥛','甜甜蜜':'🍯','純粹油':'🫙',
@@ -616,6 +617,26 @@ function ingEmoji(name) {
     '萌綠玉米':'🌽','醒腦咖啡豆':'☕','沉甸甸南瓜':'🎃','嫩亮酪梨':'🥑',
   };
   return map[name] || '🍱';
+}
+
+// Always-icon helper. Local PNG first, Serebii hotlink second, emoji last resort.
+function ingIconHTML(ing, size = 16) {
+  if (!ing) return '';
+  const local  = `assets/icons/ingredients/${ing.key}.png`;
+  const remote = ing.img_serebii;
+  const emoji  = ingEmoji(ing.name).replace(/'/g, "\\'");
+  return `<img class="ing-icon" src="${local}"
+    onerror="if(!this.dataset.r){this.dataset.r=1;this.src='${remote}'}else{this.outerHTML='<span class=\\'ing-emoji-fb\\'>${emoji}</span>'}"
+    style="width:${size}px;height:${size}px;vertical-align:middle;border-radius:2px;object-fit:contain;" alt="">`;
+}
+
+function recipeIconHTML(r, size = 28) {
+  if (!r || !r.name_en) return '';
+  const local  = `assets/icons/recipes/${r.name_en}.png`;
+  const remote = r.img_serebii;
+  return `<img class="recipe-icon" src="${local}"
+    onerror="if(!this.dataset.r){this.dataset.r=1;this.src='${remote}'}else{this.style.display='none'}"
+    style="width:${size}px;height:${size}px;vertical-align:middle;border-radius:3px;object-fit:contain;" alt="">`;
 }
 
 function filteredRecipes() {
@@ -699,7 +720,7 @@ function buildMatrix() {
     const div = document.createElement('div');
     div.className = 'ing-label' + (S.owned.has(i) ? ' owned' : '');
     div.dataset.iidx = i;
-    div.innerHTML = `<span class="owned-dot"></span><span class="ing-emoji">${ingEmoji(ing.name)}</span>${ing.name}`;
+    div.innerHTML = `<span class="owned-dot"></span><span class="ing-emoji">${ingIconHTML(ing, 14)}</span>${ing.name}`;
     div.addEventListener('click', () => { toggleOwned(i); });
     div.addEventListener('mouseenter', e => {
       highlightIngredient(i);
@@ -853,7 +874,7 @@ function buildPicker() {
     chip.className = 'ing-chip' + (S.owned.has(i) ? ' owned' : '');
     chip.dataset.iidx = i;
     chip.title = ing.name_en;
-    chip.innerHTML = `${ingEmoji(ing.name)}<span>${ing.name}</span>`;
+    chip.innerHTML = `${ingIconHTML(ing, 16)}<span>${ing.name}</span>`;
     chip.addEventListener('click', () => toggleOwned(i));
     chip.addEventListener('mouseenter', () => highlightIngredient(i));
     chip.addEventListener('mouseleave', () => clearHighlight());
@@ -951,7 +972,7 @@ function buildRecommender() {
     card.innerHTML = `
       <div class="rec-card-header">
         <div class="rec-rank">${rank + 1}</div>
-        <span class="rec-ing-name">${ingEmoji(ing.name)} ${ing.name}</span>
+        <span class="rec-ing-name">${ingIconHTML(ing, 18)} ${ing.name}</span>
         ${gainLabel}
       </div>
       ${recipeOrProgress}`;
@@ -1010,7 +1031,7 @@ function buildPlanner() {
     const badge = document.createElement('div');
     const cls = S.owned.has(i) ? 'have' : 'missing';
     badge.className = `plan-badge ${cls}`;
-    badge.textContent = `${ingEmoji(ing.name)} ${ing.name}`;
+    badge.innerHTML = `${ingIconHTML(ing, 14)} ${ing.name}`;
     badge.style.cursor = 'pointer';
     badge.addEventListener('click', () => toggleOwned(i));
     badge.addEventListener('mouseenter', () => highlightIngredient(i));
