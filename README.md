@@ -79,12 +79,14 @@ python3 -m http.server 8080
 # 資料更新（Excel 改了之後重跑）
 python3 scripts/prep_data.py
 
-# 視覺驗證（改 HTML 後必跑）
-python3 scripts/visual_check.py index.html
-
 # 演算法單元測試
 python3 scripts/test_algorithms.py
+
+# 視覺驗證（failsafe 用，互動時優先用 Chrome MCP）
+python3 scripts/visual_check.py index.html
 ```
+
+**P1 視覺驗證流程**：日常互動由 Claude 直接驅動 Chrome MCP（navigate / resize / screenshot / JS exec），`visual_check.py` 只是 pre-commit hook 的 headless fallback。
 
 ---
 

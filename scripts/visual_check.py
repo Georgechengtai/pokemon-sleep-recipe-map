@@ -1,8 +1,20 @@
 #!/usr/bin/env python3
 """
-visual_check.py — headless screenshot tool (P1 enforcement)
+visual_check.py — FAILSAFE-only headless screenshot tool (P1 enforcement)
 
-Usage:
+⚠️  PRIMARY P1 PATH IS CHROME MCP (mcp__Claude_in_Chrome__*).
+This playwright-based script exists ONLY as a fallback for:
+  - pre-commit hook runs when Claude is not in the loop
+  - headless / CI environments without Chrome MCP
+  - cases where Chrome MCP is genuinely unavailable
+
+For day-to-day interactive QA, Claude should drive Chrome MCP directly:
+    1. Start local server: python3 -m http.server 8765
+    2. mcp__Claude_in_Chrome__navigate → http://localhost:8765/index.html
+    3. mcp__Claude_in_Chrome__resize_window + computer.screenshot per viewport
+    4. mcp__Claude_in_Chrome__javascript_tool to inspect DOM state
+
+Usage (failsafe):
     python3 scripts/visual_check.py <html_file> [--out screenshots/<label>]
 
 Produces 5 screenshots:
@@ -10,10 +22,7 @@ Produces 5 screenshots:
   desktop_narrow.png 1024×768
   tablet.png         768×1024
   mobile.png         375×812
-  panel_top.png      1440×900 scrolled to top (same as wide, confirms header)
-
-All saved under screenshots/<label>/ (defaults to screenshots/latest/).
-Exits with code 0 on success; prints what it sees on each viewport.
+  panel_top.png      1440×900 scrolled to top
 """
 
 import sys
