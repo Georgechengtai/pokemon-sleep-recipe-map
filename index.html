@@ -855,6 +855,152 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
 }
 .recipe-card.near-cookable .tier-badge { display: none; }
 
+/* ── Tab 2: Stats ────────────────────────────────────────────── */
+#tab-stats { flex-direction: column; }
+#stats-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+#stats-controls select {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  margin-left: 4px;
+  cursor: pointer;
+}
+#stats-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px 24px;
+}
+.stat-row {
+  display: grid;
+  grid-template-columns: 170px 1.1fr 1.4fr;
+  gap: 16px;
+  align-items: center;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 14px;
+  margin-bottom: 6px;
+  box-shadow: var(--card-shadow);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.stat-row:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--card-shadow-hover);
+}
+.stat-row.excluded { opacity: 0.45; }
+.stat-row .ing-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.stat-row .ing-info .ing-icon-img { width: 28px; height: 28px; flex-shrink: 0; }
+.stat-row .ing-name {
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text);
+}
+.stat-row .ing-total {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--tier-high);
+  font-weight: 700;
+}
+.stat-row .ing-total .ing-total-label { color: var(--text-muted); font-weight: 400; margin-right: 3px; }
+
+.stat-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.stat-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10.5px;
+}
+.stat-bar-label {
+  width: 28px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.stat-bar-label.curry   { color: var(--curry); }
+.stat-bar-label.salad   { color: var(--salad); }
+.stat-bar-label.dessert { color: var(--dessert); }
+.stat-bar-track {
+  flex: 1;
+  height: 7px;
+  background: var(--surface2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.stat-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.25s;
+}
+.stat-bar-fill.curry   { background: linear-gradient(90deg, var(--curry), color-mix(in srgb, var(--curry) 65%, var(--tier-high))); }
+.stat-bar-fill.salad   { background: linear-gradient(90deg, var(--salad), color-mix(in srgb, var(--salad) 65%, var(--tier-high))); }
+.stat-bar-fill.dessert { background: linear-gradient(90deg, var(--dessert), color-mix(in srgb, var(--dessert) 65%, var(--tier-high))); }
+.stat-bar-count {
+  width: 22px;
+  text-align: right;
+  color: var(--text);
+  font-weight: 700;
+  font-size: 11px;
+}
+
+.stat-top3 {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.stat-top3-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  min-width: 0;
+}
+.stat-top3-row img { width: 18px; height: 18px; flex-shrink: 0; }
+.stat-top3-row .type-tag {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 6px;
+  color: #fff;
+  flex-shrink: 0;
+}
+.stat-top3-row .type-tag.curry   { background: var(--curry); }
+.stat-top3-row .type-tag.salad   { background: var(--salad); }
+.stat-top3-row .type-tag.dessert { background: var(--dessert); }
+.stat-top3-row .top3-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  color: var(--text);
+}
+.stat-top3-row .top3-demand {
+  color: var(--tier-high);
+  font-weight: 700;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.stat-top3-empty { color: var(--text-muted); font-size: 10.5px; font-style: italic; }
+
 /* ── Tab 3: keeps existing #main structure ──────────────────── */
 #tab-explore { flex-direction: column; }
 #tab-explore #main { flex: 1; display: flex; overflow: hidden; }
@@ -972,15 +1118,30 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
   <div id="recipe-sections"></div>
 </div>
 
-<!-- Tab 2: Stats placeholder -->
+<!-- Tab 2: Stats (per-ingredient occurrence + demand) -->
 <div class="tab-content" id="tab-stats">
-  <div class="tab-placeholder">
-    <div>
-      <b>📊 食材出現次數統計</b>
-      下一版：每食材的總出現次數、按系列拆解、Top-3 需求最高的料理。<br>
-      矩陣熱力圖也會搬來這裡，並支援橫向 scroll。
+  <div id="stats-controls">
+    <span style="font-size:11px;color:var(--text-muted);">階級篩選</span>
+    <div class="tier-filter tier-filter-group" data-source="tab2">
+      <button class="tier-btn active" data-tier="0">全部</button>
+      <button class="tier-btn" data-tier="0.25">+25%↑</button>
+      <button class="tier-btn" data-tier="0.35">+35%↑</button>
+      <button class="tier-btn" data-tier="0.48">+48%↑</button>
+      <button class="tier-btn" data-tier="0.61">+61%↑</button>
+      <button class="tier-btn" data-tier="0.78">+78%↑</button>
     </div>
+    <label style="font-size:11px;color:var(--text-muted);margin-left:auto;">排序：
+      <select id="stats-sort-select">
+        <option value="total">全部出現次數</option>
+        <option value="curry">咖哩需求</option>
+        <option value="salad">沙拉需求</option>
+        <option value="dessert">點心需求</option>
+        <option value="id">遊戲 ID 順序</option>
+      </select>
+    </label>
+    <span id="stats-summary" style="font-size:11px;color:var(--text-muted);"></span>
   </div>
+  <div id="stats-list"></div>
 </div>
 
 <!-- Tab 3: Explore (v1 panels — Map / Recommender / Planner with shared state) -->
@@ -1130,6 +1291,7 @@ const S = {
   tab: 'browser',
   hideSuperseded: true,      // default ON — hide lower-score same-type recipes
   hideCardMeta: true,        // default ON — hide tier% badge + score on cards
+  statsSort: 'total',        // Tab 2 sort key
 };
 
 const TYPE_META = {
@@ -1425,6 +1587,7 @@ function refreshAll() {
   updateOwnedDisplay();
   buildIngToolbar();
   buildBrowser();
+  buildStats();
   buildRecommender();
   buildPlanner();
 }
@@ -1890,6 +2053,101 @@ function buildRecipeCard(r) {
   return card;
 }
 
+/* ── Tab 2: Stats ────────────────────────────────────────────────── */
+function buildStats() {
+  if (!S.data) return;
+  const list = document.getElementById('stats-list');
+  const summary = document.getElementById('stats-summary');
+  if (!list) return;
+
+  const ingByName = Object.fromEntries(S.data.ingredients.map((x, i) => [x.name, i]));
+
+  // activeRecipes: pass tier filter; exclusion of ings is a per-row visual decoration
+  //   (the row's stats still reflect the actual underlying data for that ing)
+  const activeRecipes = S.data.recipes.filter(r =>
+    !r.is_placeholder && r.tier_bonus >= S.minTier
+  );
+
+  // Per-ingredient stats
+  const stats = S.data.ingredients.map((ing, i) => {
+    const usedIn = activeRecipes.filter(r => r.ingredients.some(x => x.name === ing.name));
+    const byType = { curry: 0, salad: 0, dessert: 0 };
+    usedIn.forEach(r => byType[r.type_en]++);
+
+    const top3 = usedIn.map(r => ({
+      recipe: r,
+      count: r.ingredients.find(x => x.name === ing.name).count,
+    })).sort((a, b) => b.count - a.count).slice(0, 3);
+
+    return {
+      idx: i, ing,
+      total: usedIn.length,
+      byType, top3,
+      excluded: S.excluded.has(i),
+    };
+  });
+
+  // Sort
+  const sortBy = S.statsSort || 'total';
+  if (sortBy === 'id') {
+    stats.sort((a, b) => a.idx - b.idx);
+  } else if (sortBy === 'total') {
+    stats.sort((a, b) => b.total - a.total || a.idx - b.idx);
+  } else {
+    stats.sort((a, b) => b.byType[sortBy] - a.byType[sortBy] || b.total - a.total);
+  }
+
+  // Bar scale: max within each type
+  const maxByType = {
+    curry:   Math.max(1, ...stats.map(s => s.byType.curry)),
+    salad:   Math.max(1, ...stats.map(s => s.byType.salad)),
+    dessert: Math.max(1, ...stats.map(s => s.byType.dessert)),
+  };
+
+  list.innerHTML = '';
+  const typeLabel = { curry: '咖哩', salad: '沙拉', dessert: '點心' };
+  const typeShort = { curry: '咖', salad: '沙', dessert: '點' };
+
+  for (const s of stats) {
+    const row = document.createElement('div');
+    row.className = 'stat-row' + (s.excluded ? ' excluded' : '');
+
+    const barsHTML = ['curry', 'salad', 'dessert'].map(t => `
+      <div class="stat-bar-row">
+        <span class="stat-bar-label ${t}">${typeLabel[t]}</span>
+        <div class="stat-bar-track">
+          <div class="stat-bar-fill ${t}" style="width:${Math.round(s.byType[t] / maxByType[t] * 100)}%"></div>
+        </div>
+        <span class="stat-bar-count">${s.byType[t]}</span>
+      </div>
+    `).join('');
+
+    const top3HTML = s.top3.length === 0
+      ? '<div class="stat-top3-empty">此階級下無料理</div>'
+      : s.top3.map(t => `
+          <div class="stat-top3-row">
+            ${recipeIconHTML(t.recipe, 18)}
+            <span class="type-tag ${t.recipe.type_en}">${typeShort[t.recipe.type_en]}</span>
+            <span class="top3-name" title="${t.recipe.name}">${t.recipe.name}</span>
+            <span class="top3-demand">×${t.count}</span>
+          </div>
+        `).join('');
+
+    row.innerHTML = `
+      <div class="ing-info">
+        <img class="ing-icon-img" src="assets/icons/ingredients/${s.ing.key}.png" alt="">
+        <span class="ing-name">${s.ing.name}</span>
+        <span class="ing-total"><span class="ing-total-label">共</span>${s.total}</span>
+      </div>
+      <div class="stat-bars">${barsHTML}</div>
+      <div class="stat-top3">${top3HTML}</div>
+    `;
+    list.appendChild(row);
+  }
+
+  if (summary) summary.textContent = `${activeRecipes.length} 道料理`;
+}
+
 /* ── Tab 1 controls ──────────────────────────────────────────────── */
 function applyHideMeta() {
   document.body.classList.toggle('hide-card-meta', S.hideCardMeta);
@@ -1933,6 +2191,7 @@ function initTierFilter() {
       S.minTier = parseFloat(btn.dataset.tier);
       syncTierButtons();
       buildBrowser();
+      buildStats();
       buildMatrix();
       buildRecommender();
       buildPlanner();
@@ -1941,6 +2200,16 @@ function initTierFilter() {
     });
   });
   syncTierButtons();
+}
+
+function initStatsControls() {
+  const sel = document.getElementById('stats-sort-select');
+  if (!sel) return;
+  sel.value = S.statsSort;
+  sel.addEventListener('change', () => {
+    S.statsSort = sel.value;
+    buildStats();
+  });
 }
 
 /* ── Theme toggle ────────────────────────────────────────────────── */
@@ -1978,9 +2247,11 @@ function init() {
   initSearch();
   initCK();
   initBrowserControls();
+  initStatsControls();
 
   buildIngToolbar();
   buildBrowser();
+  buildStats();
   buildMatrix();
   buildPicker();
   buildRecommender();
