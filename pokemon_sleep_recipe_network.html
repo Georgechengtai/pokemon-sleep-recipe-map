@@ -1,0 +1,1580 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>寶睡食材-料理 3D 網路圖 v3</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden;
+    font-family: -apple-system, "Apple Color Emoji", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    background: #0b0f17; color: #e6e8ee; }
+  #app { display: flex; height: 100vh; width: 100vw; }
+
+  aside { background: #131826; padding: 14px 16px; overflow-y: auto; font-size: 13px;
+    flex-shrink: 0; }
+  #sidebar { width: 320px; border-right: 1px solid #232a3a; }
+  #controlpanel { width: 280px; border-left: 1px solid #232a3a; }
+  #controlpanel.collapsed { width: 36px; padding: 14px 4px; }
+  #controlpanel.collapsed > *:not(.panel-header) { display: none; }
+  #controlpanel.collapsed .panel-header h2 { display: none; }
+
+  aside h1 { font-size: 16px; margin: 0 0 4px 0; color: #fff; font-weight: 600; }
+  aside .subtitle { color: #8892a8; font-size: 11px; margin-bottom: 16px; line-height:1.5; }
+  aside h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: #8892a8; margin: 14px 0 6px 0; font-weight: 500; display: flex;
+    justify-content: space-between; align-items: center;}
+  aside h2 .hint { text-transform: none; font-weight: 400; font-size: 10px; color: #5a6378; }
+
+  .seg { display: flex; background: #1c2334; border-radius: 6px; padding: 2px; flex-wrap: wrap; }
+  .seg button { flex: 1; background: transparent; color: #8892a8; border: none;
+    padding: 6px 4px; cursor: pointer; font-size: 11px; border-radius: 4px;
+    font-family: inherit; transition: 0.15s; min-width: 0; }
+  .seg button.active { background: #2c3550; color: #fff; }
+  .seg button:hover:not(.active) { color: #ccd2e0; }
+
+  .tier-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+  .tier-btn { background: #1c2334; color: #8892a8; border: 1px solid transparent;
+    padding: 5px 0; cursor: pointer; font-size: 11px; border-radius: 4px;
+    font-family: inherit; transition: 0.15s; }
+  .tier-btn.active { background: #2c3550; color: #fff; border-color: #3a4258; }
+  .tier-btn:hover:not(.active) { color: #ccd2e0; background: #232a3a; }
+
+  .recipe-group { margin-bottom: 8px; }
+  .recipe-group .group-header { display: flex; justify-content: space-between;
+    align-items: center; padding: 4px 0; }
+  .recipe-group .group-header .pill {
+    font-size: 10px; padding: 2px 7px; border-radius: 10px; font-weight: 600; }
+  .group-header .group-toggle {
+    background: transparent; border: none; color: #8892a8; font-size: 11px;
+    cursor: pointer; padding: 0; font-family: inherit; }
+  .group-toggle:hover { color: #ccd2e0; }
+
+  .recipe-item { display: flex; align-items: center; padding: 4px 6px;
+    border-radius: 4px; cursor: pointer; transition: 0.1s; gap: 8px; }
+  .recipe-item:hover { background: #1c2334; }
+  .recipe-item input { margin: 0; cursor: pointer; }
+  .recipe-item .rname { flex: 1; font-size: 12px; }
+  .recipe-item .rscore { color: #8892a8; font-size: 10px; }
+  .recipe-item.selected .rname { color: #fff; font-weight: 500; }
+  .recipe-item .rtier { font-size: 9px; color: #5a6378; }
+
+  .ctrl-row { margin: 8px 0; }
+  .ctrl-row label { display: flex; justify-content: space-between; font-size: 11px;
+    color: #ccd2e0; margin-bottom: 4px; }
+  .ctrl-row label span:last-child { color: #8892a8; font-variant-numeric: tabular-nums; }
+  .ctrl-row input[type=range] { width: 100%; accent-color: #5b73c4; }
+  .toggle-row { display: flex; justify-content: space-between; align-items: center;
+    padding: 6px 0; font-size: 12px; }
+  .toggle-row label { color: #ccd2e0; cursor: pointer; flex: 1; }
+
+  .btn-line { background: #1c2334; color: #ccd2e0; border: 1px solid #2c3550;
+    padding: 8px 12px; border-radius: 6px; cursor: pointer; font-family: inherit;
+    font-size: 12px; width: 100%; margin: 4px 0; transition: 0.15s; }
+  .btn-line:hover { background: #232a3a; color: #fff; }
+
+  .collapse-btn { background: transparent; border: none; color: #8892a8;
+    cursor: pointer; font-size: 16px; padding: 0; width: 24px; }
+  .panel-header { display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 4px; }
+
+  #graph-area { flex: 1; position: relative; overflow: hidden; }
+  #cv { width: 100%; height: 100%; display: block; cursor: grab; }
+  #cv.dragging { cursor: grabbing; }
+
+  .top-bar { position: absolute; top: 12px; left: 12px; display: flex; gap: 8px;
+    align-items: center; z-index: 5; }
+  .mode-badge { background: rgba(19,24,38,0.92); padding: 8px 12px; border-radius: 6px;
+    font-size: 11px; color: #8892a8; border: 1px solid #232a3a; }
+  .mode-badge b { color: #fff; }
+  .back-btn { background: #2c3550; color: #fff; border: none; padding: 8px 14px;
+    border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 12px;
+    display: none; }
+  .back-btn:hover { background: #3a4670; }
+  .back-btn.show { display: inline-block; }
+
+  #legend { position: absolute; top: 12px; right: 12px; background: rgba(19,24,38,0.92);
+    padding: 10px 12px; border-radius: 8px; font-size: 11px; border: 1px solid #232a3a;
+    z-index: 5; }
+  #legend .legend-row { display: flex; align-items: center; gap: 6px; margin: 3px 0; }
+  .swatch { width: 14px; height: 3px; border-radius: 2px; }
+  .swatch-square { width: 12px; height: 12px; border-radius: 3px; }
+  .swatch-diamond { width: 10px; height: 10px; transform: rotate(45deg); }
+
+  #infopanel { position: absolute; bottom: 12px; left: 12px; background: rgba(19,24,38,0.96);
+    padding: 12px 14px; border-radius: 8px; font-size: 12px; border: 1px solid #2c3550;
+    max-width: 380px; min-width: 240px; display: none; box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    z-index: 5; }
+  #infopanel h3 { margin: 0 0 6px 0; font-size: 14px; color: #fff; }
+  #infopanel .score { color: #8892a8; font-size: 11px; }
+  #infopanel ul { margin: 6px 0 0 0; padding-left: 0; list-style: none; font-size: 11px; color: #c7cde0; max-height: 200px; overflow-y: auto; }
+  #infopanel ul li { margin: 3px 0; display: flex; gap: 6px; align-items: center; }
+  #infopanel .focus-cta { margin-top: 8px; padding: 6px 10px; background: #2c3550;
+    color: #fff; border-radius: 4px; text-align: center; cursor: pointer; font-size: 11px; }
+  #infopanel .focus-cta:hover { background: #3a4670; }
+
+  #tooltip { position: absolute; pointer-events: none; background: #131826;
+    border: 1px solid #2c3550; padding: 6px 10px; border-radius: 6px; font-size: 11px;
+    color: #fff; display: none; z-index: 10; max-width: 240px; line-height: 1.5; }
+
+  .stat-row { display: flex; justify-content: space-between; padding: 3px 0;
+    font-size: 11px; color: #8892a8; }
+  .stat-row span:last-child { color: #ccd2e0; font-weight: 500; }
+</style>
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <h1>寶睡食材-料理 3D 網路圖 <span style="color:#8892a8;font-size:11px">v3</span></h1>
+    <div class="subtitle">食材兩兩同現 → 形成邊。料理外框多邊形把「這 4 點是同一道菜」直接視覺化。</div>
+
+    <h2>節點大小依據</h2>
+    <div class="seg" id="size-mode">
+      <button data-mode="recipe_count" class="active">連通度</button>
+      <button data-mode="base_score">基礎分</button>
+      <button data-mode="total_demand">總需求</button>
+    </div>
+    <div style="font-size:10px; color:#8892a8; margin-top:4px;" id="size-desc">
+      食材出現在多少道目前選中的料理裡
+    </div>
+
+    <h2>階級獎勵篩選 <span class="hint" id="tier-count"></span></h2>
+    <div class="tier-grid" id="tier-grid"></div>
+
+    <h2>篩選料理 <span class="hint" id="recipe-count"></span></h2>
+    <div id="recipe-list"></div>
+
+    <h2>本次選中統計</h2>
+    <div id="stats"></div>
+  </aside>
+
+  <div id="graph-area">
+    <canvas id="cv"></canvas>
+    <div class="top-bar">
+      <button class="back-btn" id="back-btn">← 返回 3D 圖</button>
+      <div class="mode-badge"><b id="mode-name">3D 力導向</b>　·　拖曳旋轉 · 滾輪縮放 · Shift+拖曳平移</div>
+    </div>
+    <div id="img-status" style="position:absolute; bottom:12px; right:12px;
+      background:rgba(19,24,38,0.92); padding:8px 12px; border-radius:6px;
+      font-size:11px; border:1px solid #232a3a; color:#8892a8; z-index:5;
+      font-variant-numeric:tabular-nums; line-height:1.5;">
+      <div style="color:#fff;font-weight:600">圖片載入狀態</div>
+      <div id="img-stats-text">初始化中...</div>
+    </div>
+    <div id="legend">
+      <div style="font-weight:600; color:#fff; margin-bottom:6px; font-size:11px;">邊／料理外框</div>
+      <div class="legend-row"><div class="swatch" style="background:#FF8A3D"></div>咖哩、濃湯</div>
+      <div class="legend-row"><div class="swatch" style="background:#4CD964"></div>沙拉</div>
+      <div class="legend-row"><div class="swatch" style="background:#FF6B9D"></div>點心、飲料</div>
+      <div style="font-weight:600; color:#fff; margin:8px 0 4px 0; font-size:11px;">聚焦圖節點</div>
+      <div class="legend-row"><div class="swatch-square" style="background:#7B8AAB"></div>食材</div>
+      <div class="legend-row"><div class="swatch-diamond" style="background:#FF8A3D"></div>料理</div>
+    </div>
+    <div id="infopanel"></div>
+    <div id="tooltip"></div>
+  </div>
+
+  <aside id="controlpanel">
+    <div class="panel-header">
+      <h2 style="margin:0">視覺工具箱</h2>
+      <button class="collapse-btn" id="collapse-btn" title="摺疊">⮞</button>
+    </div>
+
+    <h2 style="margin-top:8px">顯示層</h2>
+    <div class="seg" id="view-layer">
+      <button data-mode="edges">兩兩配對</button>
+      <button data-mode="paths" class="active">路徑（每道一條線）</button>
+      <button data-mode="both">兩者疊加</button>
+    </div>
+    <div style="font-size:10px; color:#8892a8; margin-top:4px;" id="layer-desc">
+      路徑模式：每道料理 = 一條從共用食材出發、到獨有食材結束的線。線尾貼料理名稱。
+    </div>
+
+    <h2 style="margin-top:8px">料理外框顯示</h2>
+    <div class="seg" id="poly-mode">
+      <button data-mode="always">總是顯示</button>
+      <button data-mode="hover" class="active">Hover 才顯示</button>
+      <button data-mode="off">關閉</button>
+    </div>
+    <div style="font-size:10px; color:#8892a8; margin-top:4px;" id="poly-desc">
+      預設：滑鼠移到食材上時，才顯示包含該食材的料理外框
+    </div>
+    <div class="toggle-row" style="margin-top:8px">
+      <label for="t-emoji">顯示食材圖示（圖片 / emoji）</label>
+      <input type="checkbox" id="t-emoji" checked>
+    </div>
+    <div class="toggle-row">
+      <label for="t-labels">顯示文字標籤</label>
+      <input type="checkbox" id="t-labels" checked>
+    </div>
+    <div class="toggle-row">
+      <label for="t-highlight">弱化非關聯邊</label>
+      <input type="checkbox" id="t-highlight" checked>
+    </div>
+
+    <h2>外觀</h2>
+    <div class="ctrl-row">
+      <label>節點大小倍數 <span id="v-nodescale">1.0×</span></label>
+      <input type="range" id="s-nodescale" min="0.4" max="2.5" step="0.1" value="1.0">
+    </div>
+    <div class="ctrl-row">
+      <label>邊透明度 <span id="v-edgeopacity">0.55</span></label>
+      <input type="range" id="s-edgeopacity" min="0.1" max="1.0" step="0.05" value="0.55">
+    </div>
+    <div class="ctrl-row">
+      <label>邊粗細 <span id="v-edgewidth">1.4</span></label>
+      <input type="range" id="s-edgewidth" min="0.5" max="4" step="0.1" value="1.4">
+    </div>
+    <div class="ctrl-row">
+      <label>料理外框不透明度 <span id="v-polyopacity">0.10</span></label>
+      <input type="range" id="s-polyopacity" min="0.02" max="0.4" step="0.01" value="0.10">
+    </div>
+    <div class="ctrl-row">
+      <label>路徑分離度（0=交集 / 大=平行） <span id="v-pathsep">4</span></label>
+      <input type="range" id="s-pathsep" min="0" max="20" step="1" value="4">
+    </div>
+    <div class="ctrl-row">
+      <label>路徑線寬 <span id="v-pathwidth">2.5</span></label>
+      <input type="range" id="s-pathwidth" min="1" max="6" step="0.2" value="2.5">
+    </div>
+    <div class="toggle-row">
+      <label for="t-tailtag">顯示路徑尾端料理標籤</label>
+      <input type="checkbox" id="t-tailtag" checked>
+    </div>
+
+    <h2>物理模擬</h2>
+    <div class="ctrl-row">
+      <label>排斥力 <span id="v-repulsion">14000</span></label>
+      <input type="range" id="s-repulsion" min="2000" max="40000" step="500" value="14000">
+    </div>
+    <div class="ctrl-row">
+      <label>彈簧長度 <span id="v-springlen">90</span></label>
+      <input type="range" id="s-springlen" min="40" max="220" step="5" value="90">
+    </div>
+    <div class="ctrl-row">
+      <label>彈簧強度 <span id="v-springstr">0.020</span></label>
+      <input type="range" id="s-springstr" min="0.005" max="0.08" step="0.001" value="0.020">
+    </div>
+    <div class="ctrl-row">
+      <label>中心重力 <span id="v-gravity">0.012</span></label>
+      <input type="range" id="s-gravity" min="0" max="0.1" step="0.002" value="0.012">
+    </div>
+
+    <button class="btn-line" id="btn-shuffle">🎲 重新打散位置</button>
+    <button class="btn-line" id="btn-resetcam">🎥 重置視角</button>
+  </aside>
+</div>
+
+<script src="_data.js"></script>
+<script>
+// =============================================================
+// State & constants
+// =============================================================
+const TYPE_COLORS = {
+  '咖哩、濃湯': '#FF8A3D',
+  '沙拉': '#4CD964',
+  '點心、飲料': '#FF6B9D'
+};
+const TYPE_SHORT = { '咖哩、濃湯': '咖哩', '沙拉': '沙拉', '點心、飲料': '點心' };
+
+const ALL_TIERS = [...new Set(RAW_DATA.recipes.map(r => r.tier_bonus))].sort((a,b)=>a-b);
+const DEFAULT_TIERS = new Set(ALL_TIERS.filter(t => t >= 0.48));
+
+const state = {
+  recipes: RAW_DATA.recipes.map((r, i) => ({...r, idx: i, selected: DEFAULT_TIERS.has(r.tier_bonus)})),
+  ingredients: RAW_DATA.ingredients,
+  emojiMap: Object.fromEntries(RAW_DATA.ingredients.map(i => [i.name, i.emoji])),
+  sizeMode: 'recipe_count',
+  enabledTiers: new Set(DEFAULT_TIERS),
+  ui: {
+    showEmoji: true, showLabels: true, highlightFocus: true,
+    polygonMode: 'hover', // 'always' | 'hover' | 'off'
+    polyOpacity: 0.10,
+    nodeScale: 1.0, edgeOpacity: 0.55, edgeWidth: 1.4,
+    viewLayer: 'paths',  // 'edges' | 'paths' | 'both'
+    pathSep: 4,          // path separation in screen px (0 = intersect)
+    pathWidth: 2.5,
+    showTailTag: true,   // show recipe tail label
+  },
+  images: {},  // name -> HTMLImageElement (loaded)
+  sim: { repulsion: 14000, springLen: 90, spring: 0.020, gravity: 0.012, damping: 0.78, maxV: 18 },
+  nodes: [], links: [], ingMeta: {},
+  camera: { rotX: 0.4, rotY: 0.6, zoom: 1, panX: 0, panY: 0 },
+  hover: null, selected: null, hoverRecipe: null,
+  viewMode: 'force3d',
+  focal: null,
+};
+
+// =============================================================
+// Sidebar: tier + recipe list
+// =============================================================
+function renderTierFilter() {
+  const grid = document.getElementById('tier-grid');
+  grid.innerHTML = '';
+  ALL_TIERS.forEach(t => {
+    const btn = document.createElement('button');
+    btn.className = 'tier-btn' + (state.enabledTiers.has(t) ? ' active' : '');
+    btn.textContent = `+${Math.round(t*100)}%`;
+    btn.addEventListener('click', () => {
+      if (state.enabledTiers.has(t)) state.enabledTiers.delete(t);
+      else state.enabledTiers.add(t);
+      state.recipes.forEach(r => { r.selected = state.enabledTiers.has(r.tier_bonus); });
+      renderTierFilter(); renderRecipeList(); rebuildGraph();
+    });
+    grid.appendChild(btn);
+  });
+  document.getElementById('tier-count').textContent = `${state.enabledTiers.size}/${ALL_TIERS.length} 階`;
+}
+
+function renderRecipeList() {
+  const container = document.getElementById('recipe-list');
+  container.innerHTML = '';
+  const visible = state.recipes.filter(r => state.enabledTiers.has(r.tier_bonus));
+  const byType = {};
+  visible.forEach(r => { (byType[r.type] = byType[r.type] || []).push(r); });
+  Object.entries(byType).forEach(([type, list]) => {
+    list.sort((a, b) => b.score_final - a.score_final);
+    const grp = document.createElement('div');
+    grp.className = 'recipe-group';
+    const allOn = list.every(r => r.selected);
+    grp.innerHTML = `
+      <div class="group-header">
+        <div class="pill" style="background:${TYPE_COLORS[type]}33; color:${TYPE_COLORS[type]}">${type} (${list.length})</div>
+        <button class="group-toggle" data-type="${type}">${allOn ? '全關' : '全開'}</button>
+      </div>`;
+    list.forEach(r => {
+      const item = document.createElement('label');
+      item.className = 'recipe-item' + (r.selected ? ' selected' : '');
+      item.innerHTML = `
+        <input type="checkbox" data-idx="${r.idx}" ${r.selected ? 'checked' : ''}>
+        <span class="rname">${r.name}</span>
+        <span class="rtier">+${Math.round(r.tier_bonus*100)}%</span>
+        <span class="rscore">${r.score_final.toLocaleString()}</span>`;
+      grp.appendChild(item);
+    });
+    container.appendChild(grp);
+  });
+  container.querySelectorAll('input[type=checkbox]').forEach(cb => {
+    cb.addEventListener('change', e => {
+      state.recipes[parseInt(e.target.dataset.idx)].selected = e.target.checked;
+      renderRecipeList(); rebuildGraph();
+    });
+  });
+  container.querySelectorAll('.group-toggle').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const type = e.target.dataset.type;
+      const grp = visible.filter(r => r.type === type);
+      const allOn = grp.every(r => r.selected);
+      grp.forEach(r => r.selected = !allOn);
+      renderRecipeList(); rebuildGraph();
+    });
+  });
+  document.getElementById('recipe-count').textContent =
+    `${visible.filter(r=>r.selected).length}/${visible.length}`;
+}
+
+function renderStats() {
+  const selected = state.recipes.filter(r => r.selected);
+  document.getElementById('stats').innerHTML = `
+    <div class="stat-row"><span>選中料理數</span><span>${selected.length}</span></div>
+    <div class="stat-row"><span>涉及食材種類</span><span>${state.nodes.length} / 19</span></div>
+    <div class="stat-row"><span>選中料理總分</span><span>${selected.reduce((a,b)=>a+b.score_final,0).toLocaleString()}</span></div>
+  `;
+}
+
+// =============================================================
+// Build main graph data
+// =============================================================
+function rebuildGraph() {
+  const selected = state.recipes.filter(r => r.selected);
+  const ingMeta = {};
+  state.ingredients.forEach(ing => {
+    ingMeta[ing.name] = { ...ing, recipe_count: 0, total_demand: 0, recipes: [] };
+  });
+  selected.forEach(r => {
+    r.ingredients.forEach(i => {
+      if (!ingMeta[i.name]) return;
+      ingMeta[i.name].recipe_count += 1;
+      ingMeta[i.name].total_demand += i.qty;
+      ingMeta[i.name].recipes.push({name: r.name, type: r.type, qty: i.qty, score: r.score_final, tier: r.tier_bonus});
+    });
+  });
+
+  const prev = {};
+  state.nodes.forEach(n => prev[n.name] = n);
+  const used = Object.keys(ingMeta).filter(n => ingMeta[n].recipe_count > 0);
+  const nodes = used.map(name => {
+    const m = ingMeta[name];
+    const old = prev[name];
+    return {
+      name, name_en: m.name_en, base_score: m.base_score, emoji: m.emoji,
+      recipe_count: m.recipe_count, total_demand: m.total_demand, recipes: m.recipes,
+      x: old ? old.x : (Math.random()-0.5)*300,
+      y: old ? old.y : (Math.random()-0.5)*300,
+      z: old ? old.z : (Math.random()-0.5)*300,
+      vx: 0, vy: 0, vz: 0,
+    };
+  });
+
+  const links = [];
+  const pairBuckets = {};
+  selected.forEach(r => {
+    for (let i = 0; i < r.ingredients.length; i++) {
+      for (let j = i + 1; j < r.ingredients.length; j++) {
+        const a = r.ingredients[i].name, b = r.ingredients[j].name;
+        const key = [a, b].sort().join('|');
+        if (!pairBuckets[key]) pairBuckets[key] = [];
+        const link = { a, b, recipe: r.name, type: r.type, color: TYPE_COLORS[r.type], curveIdx: pairBuckets[key].length };
+        pairBuckets[key].push(link);
+        links.push(link);
+      }
+    }
+  });
+  Object.values(pairBuckets).forEach(bucket => bucket.forEach(l => l.curveTotal = bucket.length));
+
+  state.nodes = nodes; state.links = links; state.ingMeta = ingMeta;
+
+  // ----- compute path ordering per recipe -----
+  // Order ingredients by descending count-in-selected (most-shared first),
+  // tie-break by descending base_score. This creates max-overlap prefixes.
+  // Math reference: seriation / consensus ordering — greedy heuristic for
+  // the Steiner-tree-like "shared prefix" minimisation problem.
+  const globalCount = {};
+  selected.forEach(r => r.ingredients.forEach(i => {
+    globalCount[i.name] = (globalCount[i.name] || 0) + 1;
+  }));
+  selected.forEach(r => {
+    r.pathOrder = [...r.ingredients].sort((a, b) => {
+      const ca = (globalCount[a.name] || 1), cb = (globalCount[b.name] || 1);
+      if (ca !== cb) return cb - ca;
+      const sa = ingMeta[a.name] ? ingMeta[a.name].base_score : 0;
+      const sb = ingMeta[b.name] ? ingMeta[b.name].base_score : 0;
+      if (sa !== sb) return sb - sa;
+      return a.name.localeCompare(b.name);
+    });
+  });
+
+  renderStats();
+}
+
+// =============================================================
+// 3D force simulation (main view)
+// =============================================================
+function tick() {
+  if (state.viewMode !== 'force3d') return;
+  const nodes = state.nodes, links = state.links, S = state.sim;
+  for (let i = 0; i < nodes.length; i++) {
+    const a = nodes[i]; a.fx = 0; a.fy = 0; a.fz = 0;
+    for (let j = 0; j < nodes.length; j++) {
+      if (i === j) continue;
+      const b = nodes[j];
+      const dx = a.x-b.x, dy = a.y-b.y, dz = a.z-b.z;
+      const r2 = dx*dx+dy*dy+dz*dz+1;
+      const f = S.repulsion / r2, r = Math.sqrt(r2);
+      a.fx += (dx/r)*f; a.fy += (dy/r)*f; a.fz += (dz/r)*f;
+    }
+  }
+  const pairCount = {};
+  links.forEach(l => { const k = [l.a,l.b].sort().join('|'); pairCount[k] = (pairCount[k]||0)+1; });
+  const seen = new Set();
+  links.forEach(l => {
+    const k = [l.a,l.b].sort().join('|');
+    if (seen.has(k)) return; seen.add(k);
+    const a = nodes.find(n => n.name===l.a), b = nodes.find(n => n.name===l.b);
+    if (!a || !b) return;
+    const dx = b.x-a.x, dy = b.y-a.y, dz = b.z-a.z;
+    const r = Math.sqrt(dx*dx+dy*dy+dz*dz)+0.01;
+    const k_eff = S.spring * (1 + 0.3*Math.log2(pairCount[k]+1));
+    const f = k_eff * (r - S.springLen);
+    a.fx += (dx/r)*f; a.fy += (dy/r)*f; a.fz += (dz/r)*f;
+    b.fx -= (dx/r)*f; b.fy -= (dy/r)*f; b.fz -= (dz/r)*f;
+  });
+  nodes.forEach(n => { n.fx -= n.x*S.gravity; n.fy -= n.y*S.gravity; n.fz -= n.z*S.gravity; });
+  nodes.forEach(n => {
+    n.vx = (n.vx + n.fx) * S.damping;
+    n.vy = (n.vy + n.fy) * S.damping;
+    n.vz = (n.vz + n.fz) * S.damping;
+    const sp = Math.hypot(n.vx, n.vy, n.vz);
+    if (sp > S.maxV) { n.vx *= S.maxV/sp; n.vy *= S.maxV/sp; n.vz *= S.maxV/sp; }
+    n.x += n.vx; n.y += n.vy; n.z += n.vz;
+  });
+}
+
+// =============================================================
+// Rendering helpers
+// =============================================================
+const cv = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+let W = 0, H = 0;
+
+function resize() {
+  const r = cv.getBoundingClientRect();
+  W = r.width; H = r.height;
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = W*dpr; cv.height = H*dpr;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+}
+window.addEventListener('resize', resize);
+
+function project(p) {
+  const cx = state.camera;
+  const cosY = Math.cos(cx.rotY), sinY = Math.sin(cx.rotY);
+  const cosX = Math.cos(cx.rotX), sinX = Math.sin(cx.rotX);
+  let x = p.x*cosY - p.z*sinY, z = p.x*sinY + p.z*cosY, y = p.y;
+  const y2 = y*cosX - z*sinX, z2 = y*sinX + z*cosX;
+  const persp = 700 / (700 + z2 + 100);
+  return {
+    sx: W/2 + x*persp*cx.zoom + cx.panX,
+    sy: H/2 + y2*persp*cx.zoom + cx.panY,
+    scale: persp*cx.zoom, z: z2,
+  };
+}
+
+function nodeRadius(n) {
+  let v;
+  if (state.sizeMode === 'recipe_count') v = 6 + n.recipe_count * 2.5;
+  else if (state.sizeMode === 'base_score') v = 6 + Math.sqrt(n.base_score) * 0.9;
+  else v = 6 + Math.sqrt(Math.max(1, n.total_demand)) * 1.0;
+  return v * state.ui.nodeScale;
+}
+
+function nodeColor(n) {
+  const c = n.recipe_count;
+  if (c >= 12) return '#FFD700';
+  if (c >= 7) return '#FFB347';
+  if (c >= 4) return '#9FC5E8';
+  if (c >= 1) return '#7B8AAB';
+  return '#3a4258';
+}
+
+function isNodeFocused(n) {
+  if (!state.ui.highlightFocus) return false;
+  const target = (state.hover && state.hover.type === 'node') ? state.hover.name :
+                 state.selected ? state.selected.name : null;
+  if (!target) return false;
+  if (n.name === target) return true;
+  return state.links.some(l => (l.a===target&&l.b===n.name) || (l.b===target&&l.a===n.name));
+}
+function isLinkFocused(l) {
+  if (!state.ui.highlightFocus) return false;
+  const target = (state.hover && state.hover.type === 'node') ? state.hover.name :
+                 state.selected ? state.selected.name : null;
+  if (!target) return false;
+  return l.a===target || l.b===target;
+}
+function hasFocus() {
+  return state.ui.highlightFocus && (
+    (state.hover && state.hover.type === 'node') || state.selected);
+}
+
+// Sort polygon points by angle around centroid (to avoid bowtie)
+function sortByAngle(points) {
+  if (points.length <= 2) return points;
+  const cx = points.reduce((s,p)=>s+p.sx,0)/points.length;
+  const cy = points.reduce((s,p)=>s+p.sy,0)/points.length;
+  return [...points].sort((a,b) => Math.atan2(a.sy-cy, a.sx-cx) - Math.atan2(b.sy-cy, b.sx-cx));
+}
+
+// Draw ingredient icon: prefer loaded image (circle-cropped), else emoji
+function drawIngredientIcon(ing, cx, cy, radius) {
+  const name = ing.name || ing;
+  const img = state.images[name];
+  if (img && img.complete && img.naturalWidth > 0) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius * 0.92, 0, Math.PI * 2);
+    ctx.closePath();
+    ctx.clip();
+    // cover-fit
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    const side = radius * 2 * 0.92;
+    const scale = Math.max(side / iw, side / ih);
+    const w = iw * scale, h = ih * scale;
+    ctx.drawImage(img, cx - w/2, cy - h/2, w, h);
+    ctx.restore();
+    return;
+  }
+  // fall back: emoji on transparent (circle background already drawn by caller)
+  const emoji = ing.emoji || state.emojiMap[name] || '●';
+  ctx.font = `${radius * 1.3}px "Apple Color Emoji", "Segoe UI Emoji", sans-serif`;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(emoji, cx, cy);
+}
+
+// Preload ingredient images.
+// Strategy: try Serebii URL → fall back to local extracted JPG → fall back to emoji.
+// CRITICAL: do NOT set crossOrigin. Serebii doesn't send CORS headers, so setting
+// crossOrigin='anonymous' causes load failures. Without crossOrigin, the image
+// loads as "tainted" but drawImage() on canvas still works (we don't readback pixels).
+state.imgStats = { tried: 0, serebii: 0, local: 0, failed: 0 };
+
+function preloadImages() {
+  state.ingredients.forEach(ing => {
+    const localFallback = ing.image;
+    const remote = ing.image_url;
+    if (!remote && !localFallback) return;
+    state.imgStats.tried += 1;
+
+    const img = new Image();
+    if (remote) {
+      img.onload = () => {
+        if (img.naturalWidth > 0) state.imgStats.serebii += 1;
+      };
+      img.onerror = () => {
+        if (localFallback) {
+          const img2 = new Image();
+          img2.onload = () => { if (img2.naturalWidth > 0) state.imgStats.local += 1; };
+          img2.onerror = () => { state.imgStats.failed += 1; };
+          img2.src = localFallback;
+          state.images[ing.name] = img2;
+        } else {
+          state.imgStats.failed += 1;
+        }
+      };
+      img.src = remote;
+    } else {
+      img.onload = () => { if (img.naturalWidth > 0) state.imgStats.local += 1; };
+      img.onerror = () => { state.imgStats.failed += 1; };
+      img.src = localFallback;
+    }
+    state.images[ing.name] = img;
+  });
+}
+
+// Render recipe paths: each recipe = polyline through its ordered ingredients,
+// segments offset perpendicular when shared by multiple recipes (edge-bundling).
+// Tail label sits beyond the last (most-distinctive) ingredient.
+function renderRecipePaths(projected) {
+  const recipesSel = state.recipes.filter(r => r.selected && r.pathOrder);
+
+  // Build segment lane registry (shared segments → multiple recipes need offset)
+  const segLanes = {};
+  recipesSel.forEach(r => {
+    const ord = r.pathOrder;
+    for (let i = 0; i < ord.length - 1; i++) {
+      const key = [ord[i].name, ord[i+1].name].sort().join('|');
+      (segLanes[key] = segLanes[key] || []).push(r.name);
+    }
+  });
+
+  const hoveredRecipe = state.hoverRecipe;
+  const hoveredNode = (state.hover && state.hover.type === 'node') ? state.hover.name : null;
+  const selNode = state.selected ? state.selected.name : null;
+  const focus = hoveredRecipe || hoveredNode || selNode;
+
+  recipesSel.forEach(r => {
+    const ord = r.pathOrder;
+    const pts = ord.map(o => projected[o.name]).filter(p => p);
+    if (pts.length < 2) return;
+
+    const color = TYPE_COLORS[r.type];
+    const isHoverThis = hoveredRecipe === r.name;
+    const involvesFocus = focus && (
+      hoveredRecipe === r.name ||
+      r.ingredients.some(i => i.name === hoveredNode || i.name === selNode));
+
+    let alpha;
+    if (focus) {
+      if (isHoverThis) alpha = 1.0;
+      else if (involvesFocus) alpha = 0.85;
+      else alpha = 0.08;
+    } else {
+      alpha = Math.min(0.95, state.ui.edgeOpacity * 1.4);
+    }
+
+    ctx.globalAlpha = alpha;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = state.ui.pathWidth * (isHoverThis ? 1.6 : 1);
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    ctx.moveTo(pts[0].sx, pts[0].sy);
+
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i-1], b = pts[i];
+      const key = [ord[i-1].name, ord[i].name].sort().join('|');
+      const lanes = segLanes[key] || [r.name];
+      const laneIdx = lanes.indexOf(r.name);
+      const totalLanes = lanes.length;
+      const dx = b.sx - a.sx, dy = b.sy - a.sy;
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = -dy/len, ny = dx/len;
+      const offset = (totalLanes > 1) ?
+        (laneIdx - (totalLanes-1)/2) * state.ui.pathSep : 0;
+      // bend the midpoint perpendicular to the segment
+      const mx = (a.sx + b.sx)/2 + nx*offset;
+      const my = (a.sy + b.sy)/2 + ny*offset;
+      ctx.quadraticCurveTo(mx, my, b.sx, b.sy);
+    }
+    ctx.stroke();
+
+    // Tail label
+    if (state.ui.showTailTag && pts.length >= 2) {
+      const tail = pts[pts.length-1];
+      const prev = pts[pts.length-2];
+      // extend in the direction of the tail
+      const dx = tail.sx - prev.sx, dy = tail.sy - prev.sy;
+      const len = Math.hypot(dx, dy) || 1;
+      const ex = tail.sx + dx/len * 18;
+      const ey = tail.sy + dy/len * 18;
+
+      const text = `${r.name}  +${Math.round(r.tier_bonus*100)}%  ${r.score_final.toLocaleString()}`;
+      ctx.font = 'bold 11px -apple-system, "PingFang TC", "Microsoft JhengHei", sans-serif';
+      ctx.textBaseline = 'middle';
+      ctx.textAlign = 'left';
+      const m = ctx.measureText(text);
+      const padX = 6, padY = 3;
+      const w = m.width + padX*2, h = 15 + padY*2;
+      const tagX = ex, tagY = ey - h/2;
+
+      // tiny connector
+      ctx.globalAlpha = alpha;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(tail.sx, tail.sy);
+      ctx.lineTo(tagX, ey);
+      ctx.stroke();
+
+      // tag bg
+      ctx.fillStyle = focus && !involvesFocus ? 'rgba(11,15,23,0.5)' : 'rgba(11,15,23,0.94)';
+      ctx.strokeStyle = color;
+      ctx.lineWidth = isHoverThis ? 1.5 : 1;
+      ctx.beginPath();
+      ctx.roundRect(tagX, tagY, w, h, 4);
+      ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#fff';
+      ctx.fillText(text, tagX + padX, ey);
+    }
+  });
+  ctx.globalAlpha = 1;
+}
+
+// Hex to rgba helper
+function hex2rgba(hex, a) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+// =============================================================
+// Render: main 3D view (with recipe polygons!)
+// =============================================================
+function render() {
+  ctx.fillStyle = '#0b0f17'; ctx.fillRect(0, 0, W, H);
+
+  if (state.viewMode === 'focal') return renderFocal();
+
+  const projected = {};
+  state.nodes.forEach(n => { projected[n.name] = { node: n, ...project(n) }; });
+
+  // ---- recipe polygons (drawn behind edges) ----
+  if (state.ui.polygonMode !== 'off') {
+    const mode = state.ui.polygonMode;
+    const hoveredRecipe = state.hoverRecipe;
+    const hoveredNode = (state.hover && state.hover.type === 'node') ? state.hover.name : null;
+    const selNode = state.selected ? state.selected.name : null;
+
+    const recipesList = state.recipes.filter(r => r.selected).map(r => {
+      const points = r.ingredients.map(i => projected[i.name]).filter(p => p);
+      if (points.length < 3) return null;
+      const sorted = sortByAngle(points);
+      const avgZ = points.reduce((s,p)=>s+p.z,0)/points.length;
+      return { recipe: r, points: sorted, avgZ };
+    }).filter(p => p).sort((a,b) => b.avgZ - a.avgZ);
+
+    recipesList.forEach(({recipe, points}) => {
+      const color = TYPE_COLORS[recipe.type];
+      const isHoverThisRecipe = recipe.name === hoveredRecipe;
+      // does this recipe contain the currently-hovered or selected ingredient node?
+      const containsTarget = (hoveredNode || selNode) &&
+        recipe.ingredients.some(i => i.name === (hoveredNode || selNode));
+
+      let alpha = 0;
+      if (mode === 'always') {
+        alpha = state.ui.polyOpacity;
+        if (isHoverThisRecipe) alpha = Math.min(0.6, alpha * 4);
+        if (hoveredNode || selNode) {
+          if (!containsTarget && !isHoverThisRecipe) alpha *= 0.15;
+          else if (containsTarget && !isHoverThisRecipe) alpha = Math.min(0.4, alpha * 2.5);
+        }
+      } else if (mode === 'hover') {
+        if (isHoverThisRecipe) alpha = Math.min(0.55, state.ui.polyOpacity * 5);
+        else if (containsTarget) alpha = Math.min(0.30, state.ui.polyOpacity * 2.5);
+      }
+      if (alpha < 0.01) return;
+
+      ctx.fillStyle = hex2rgba(color, alpha);
+      ctx.strokeStyle = hex2rgba(color, Math.min(1, alpha*4));
+      ctx.lineWidth = isHoverThisRecipe ? 2.2 : 1;
+      ctx.beginPath();
+      ctx.moveTo(points[0].sx, points[0].sy);
+      for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].sx, points[i].sy);
+      ctx.closePath(); ctx.fill(); ctx.stroke();
+    });
+  }
+
+  // ---- recipe paths (new visualization) ----
+  if (state.ui.viewLayer === 'paths' || state.ui.viewLayer === 'both') {
+    renderRecipePaths(projected);
+  }
+
+  // Hoist focus state so nodes section can use it even when edge layer is off
+  const focused = hasFocus();
+
+  // ---- edges (two-by-two pairs) ----
+  if (state.ui.viewLayer === 'edges' || state.ui.viewLayer === 'both') {
+  const linksSorted = state.links.map(l => {
+    const pa = projected[l.a], pb = projected[l.b];
+    if (!pa || !pb) return null;
+    return { l, pa, pb, midz: (pa.z+pb.z)/2 };
+  }).filter(x => x).sort((u,v) => v.midz - u.midz);
+
+  linksSorted.forEach(({l, pa, pb}) => {
+    const mx = (pa.sx+pb.sx)/2, my = (pa.sy+pb.sy)/2;
+    const dx = pb.sx-pa.sx, dy = pb.sy-pa.sy;
+    const len = Math.hypot(dx, dy) || 1;
+    let offsetMag = 0;
+    if (l.curveTotal > 1) {
+      const slot = l.curveIdx - (l.curveTotal-1)/2;
+      offsetMag = slot * Math.min(28, 8 + len*0.05);
+    }
+    const cpx = mx + (-dy/len)*offsetMag;
+    const cpy = my + (dx/len)*offsetMag;
+    const isF = isLinkFocused(l);
+    const isHoverRecipe = state.hoverRecipe === l.recipe;
+    ctx.strokeStyle = l.color;
+    ctx.globalAlpha = focused ? (isF ? 0.95 : 0.08) :
+                      (isHoverRecipe ? 0.95 : state.ui.edgeOpacity);
+    ctx.lineWidth = state.ui.edgeWidth * (isF || isHoverRecipe ? 1.8 : 1.0);
+    ctx.beginPath();
+    ctx.moveTo(pa.sx, pa.sy);
+    ctx.quadraticCurveTo(cpx, cpy, pb.sx, pb.sy);
+    ctx.stroke();
+  });
+  ctx.globalAlpha = 1;
+  } // end viewLayer edges/both gate
+
+  // ---- nodes ----
+  const nodesSorted = Object.values(projected).sort((a,b) => b.z - a.z);
+  nodesSorted.forEach(({ node, sx, sy, scale }) => {
+    const r = nodeRadius(node) * scale;
+    const isF = isNodeFocused(node);
+    const isHover = state.hover && state.hover.type === 'node' && state.hover.name === node.name;
+    const isSel = state.selected && state.selected.name === node.name;
+    ctx.globalAlpha = focused ? (isF ? 1 : 0.25) : 1;
+
+    if (isHover || isSel) {
+      ctx.fillStyle = isSel ? '#fff' : '#ffffffaa';
+      ctx.beginPath(); ctx.arc(sx, sy, r+6, 0, Math.PI*2); ctx.fill();
+    }
+    ctx.fillStyle = nodeColor(node);
+    ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#0b0f17'; ctx.lineWidth = 1.5; ctx.stroke();
+
+    if (state.ui.showEmoji && r > 8) {
+      drawIngredientIcon(node, sx, sy, r);
+    }
+    if (state.ui.showLabels) {
+      const fontSize = Math.max(10, 12 * scale);
+      ctx.font = `${fontSize}px -apple-system, "PingFang TC", sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      const m = ctx.measureText(node.name);
+      const padX = 5, padY = 2;
+      ctx.fillStyle = 'rgba(11,15,23,0.85)';
+      ctx.fillRect(sx-m.width/2-padX, sy+r+4, m.width+padX*2, fontSize+padY*2);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(node.name, sx, sy+r+4+padY);
+    }
+  });
+  ctx.globalAlpha = 1;
+
+  // hovered recipe name floating label
+  if (state.hoverRecipe) {
+    const r = state.recipes.find(x => x.name === state.hoverRecipe);
+    if (r) {
+      const ingPts = r.ingredients.map(i => projected[i.name]).filter(p => p);
+      if (ingPts.length) {
+        const cx = ingPts.reduce((s,p)=>s+p.sx,0)/ingPts.length;
+        const cy = ingPts.reduce((s,p)=>s+p.sy,0)/ingPts.length;
+        const txt = `${r.name}  +${Math.round(r.tier_bonus*100)}%  ${r.score_final.toLocaleString()}`;
+        ctx.font = 'bold 13px -apple-system, "PingFang TC", sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        const m = ctx.measureText(txt);
+        const padX = 8, padY = 4;
+        ctx.fillStyle = 'rgba(11,15,23,0.95)';
+        ctx.strokeStyle = TYPE_COLORS[r.type]; ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        const x0 = cx - m.width/2 - padX, y0 = cy - 8 - padY;
+        const w = m.width + padX*2, h = 16 + padY*2;
+        ctx.roundRect(x0, y0, w, h, 5);
+        ctx.fill(); ctx.stroke();
+        ctx.fillStyle = '#fff';
+        ctx.fillText(txt, cx, cy);
+      }
+    }
+  }
+}
+
+// =============================================================
+// FOCAL VIEW: 2D force-directed bipartite sub-network
+// =============================================================
+function buildFocalGraph(ingName) {
+  // find recipes (from selected pool) that contain this ingredient
+  const recipes = state.recipes.filter(r =>
+    state.enabledTiers.has(r.tier_bonus) && r.ingredients.some(i => i.name === ingName));
+
+  // recipe nodes
+  const focal = { id: 'focal', kind: 'focal', name: ingName,
+    meta: state.ingMeta[ingName] || state.ingredients.find(x => x.name === ingName),
+    x: 0, y: 0, vx: 0, vy: 0, pinned: true };
+  focal.emoji = state.emojiMap[ingName] || '●';
+
+  // Type-biased initial placement so the three categories start in different sectors
+  const TYPE_ANGLE_INIT = {
+    '咖哩、濃湯': Math.PI,
+    '沙拉': -Math.PI / 4,
+    '點心、飲料': Math.PI / 3,
+  };
+  // group recipes by type to spread them within a sector
+  const typeGroups = {};
+  recipes.forEach(r => { (typeGroups[r.type] = typeGroups[r.type] || []).push(r); });
+  const recipeNodes = recipes.map(r => {
+    const groupArr = typeGroups[r.type];
+    const idx = groupArr.indexOf(r);
+    const baseAngle = TYPE_ANGLE_INIT[r.type] || 0;
+    const span = Math.PI / 2.5;  // ~72° spread per type sector
+    const a = baseAngle + (idx - (groupArr.length-1)/2) * span / Math.max(1, groupArr.length-1) * 0.8;
+    return { id: 'r:'+r.name, kind: 'recipe', recipe: r, name: r.name,
+      x: Math.cos(a) * 120, y: Math.sin(a) * 120, vx: 0, vy: 0,
+      typeAngle: baseAngle };
+  });
+
+  const ingSet = new Set();
+  recipes.forEach(r => r.ingredients.forEach(i => { if (i.name !== ingName) ingSet.add(i.name); }));
+  const ingNodes = [...ingSet].map((n, i) => {
+    const a = (i / Math.max(1, ingSet.size)) * Math.PI * 2;
+    const meta = state.ingMeta[n] || state.ingredients.find(x => x.name === n) || {name:n};
+    return { id: 'i:'+n, kind: 'ing', name: n, meta,
+      x: Math.cos(a) * 240, y: Math.sin(a) * 240, vx: 0, vy: 0 };
+  });
+
+  // Recipe-recipe similarity edges (invisible springs by ingredient overlap)
+  // Two recipes with high Jaccard overlap get pulled closer.
+  const simEdges = [];
+  for (let i = 0; i < recipes.length; i++) {
+    const Si = new Set(recipes[i].ingredients.map(x => x.name).filter(x => x !== ingName));
+    for (let j = i + 1; j < recipes.length; j++) {
+      const Sj = new Set(recipes[j].ingredients.map(x => x.name).filter(x => x !== ingName));
+      let inter = 0;
+      Si.forEach(x => { if (Sj.has(x)) inter += 1; });
+      const uni = Si.size + Sj.size - inter;
+      const jaccard = uni > 0 ? inter / uni : 0;
+      if (jaccard > 0) {
+        simEdges.push({ a: 'r:'+recipes[i].name, b: 'r:'+recipes[j].name,
+          jaccard, weight: inter });
+      }
+    }
+  }
+
+  // Type → preferred angle from origin (radians):
+  // curry  → left           (π)
+  // salad  → top-right      (-π/4)
+  // dessert→ bottom-right   (π/3)
+  const TYPE_ANGLE = {
+    '咖哩、濃湯': Math.PI,
+    '沙拉': -Math.PI / 4,
+    '點心、飲料': Math.PI / 3,
+  };
+
+  const allNodes = [focal, ...recipeNodes, ...ingNodes];
+  const idMap = Object.fromEntries(allNodes.map(n => [n.id, n]));
+
+  const links = [];
+  recipes.forEach(r => {
+    links.push({ a: 'focal', b: 'r:'+r.name, type: 'focal', color: '#5a6378' });
+    r.ingredients.forEach(i => {
+      if (i.name !== ingName) {
+        links.push({ a: 'r:'+r.name, b: 'i:'+i.name, type: r.type,
+          color: TYPE_COLORS[r.type], qty: i.qty });
+      }
+    });
+  });
+
+  // count how many recipes each ingredient is shared by (within this focal)
+  const sharedCount = {};
+  ingNodes.forEach(n => { sharedCount[n.name] = 0; });
+  recipes.forEach(r => r.ingredients.forEach(i => {
+    if (i.name !== ingName && sharedCount[i.name] !== undefined) sharedCount[i.name] += 1;
+  }));
+
+  state.focal = { focal, recipeNodes, ingNodes, allNodes, idMap, links, sharedCount, ingName, simEdges };
+}
+
+function tickFocal() {
+  if (state.viewMode !== 'focal' || !state.focal) return;
+  const { allNodes, links, idMap, simEdges, recipeNodes } = state.focal;
+
+  // Pairwise repulsion
+  for (let i = 0; i < allNodes.length; i++) {
+    const a = allNodes[i]; a.fx = 0; a.fy = 0;
+    for (let j = 0; j < allNodes.length; j++) {
+      if (i === j) continue;
+      const b = allNodes[j];
+      const dx = a.x - b.x, dy = a.y - b.y;
+      const r2 = dx*dx + dy*dy + 1, r = Math.sqrt(r2);
+      const baseRep = 4500;
+      const rep = (a.kind === b.kind) ? baseRep * 1.5 : baseRep;
+      const f = rep / r2;
+      a.fx += (dx/r) * f; a.fy += (dy/r) * f;
+    }
+  }
+
+  // Visible spring edges (focal-recipe, recipe-ingredient)
+  links.forEach(l => {
+    const a = idMap[l.a], b = idMap[l.b];
+    if (!a || !b) return;
+    const dx = b.x-a.x, dy = b.y-a.y;
+    const r = Math.sqrt(dx*dx+dy*dy)+0.01;
+    const springLen = l.type === 'focal' ? 95 : 80;
+    const k = 0.030;
+    const f = k * (r - springLen);
+    a.fx += (dx/r)*f; a.fy += (dy/r)*f;
+    b.fx -= (dx/r)*f; b.fy -= (dy/r)*f;
+  });
+
+  // (b) Recipe-recipe similarity attraction (invisible spring weighted by overlap)
+  // Two recipes sharing many ingredients get pulled together — so 咖啡凍 and 土王
+  // naturally cluster on the same branch.
+  if (simEdges) {
+    simEdges.forEach(e => {
+      const a = idMap[e.a], b = idMap[e.b];
+      if (!a || !b) return;
+      const dx = b.x-a.x, dy = b.y-a.y;
+      const r = Math.sqrt(dx*dx+dy*dy)+0.01;
+      // each shared ingredient adds attraction; scale by weight (# of shared ings)
+      const k = 0.020 * e.weight;
+      const targetLen = Math.max(40, 100 - e.weight * 20);
+      const f = k * (r - targetLen);
+      a.fx += (dx/r)*f; a.fy += (dy/r)*f;
+      b.fx -= (dx/r)*f; b.fy -= (dy/r)*f;
+    });
+  }
+
+  // (a) Sector bias: each recipe node is pushed toward its type's preferred angle
+  // This makes 3 systems naturally expand to 3 different directions.
+  const SECTOR_PULL_RADIUS = 180;
+  const SECTOR_K = 0.018;
+  recipeNodes.forEach(n => {
+    const tx = Math.cos(n.typeAngle) * SECTOR_PULL_RADIUS;
+    const ty = Math.sin(n.typeAngle) * SECTOR_PULL_RADIUS;
+    n.fx += (tx - n.x) * SECTOR_K;
+    n.fy += (ty - n.y) * SECTOR_K;
+  });
+
+  // Mild origin gravity (weaker than before; sector pull does most of the work)
+  allNodes.forEach(n => { n.fx -= n.x * 0.003; n.fy -= n.y * 0.003; });
+
+  // Integrate
+  allNodes.forEach(n => {
+    if (n.pinned) { n.vx = 0; n.vy = 0; return; }
+    n.vx = (n.vx + n.fx) * 0.78;
+    n.vy = (n.vy + n.fy) * 0.78;
+    const sp = Math.hypot(n.vx, n.vy);
+    if (sp > 15) { n.vx *= 15/sp; n.vy *= 15/sp; }
+    n.x += n.vx; n.y += n.vy;
+  });
+}
+
+function renderFocal() {
+  if (!state.focal) return;
+  const { focal, recipeNodes, ingNodes, links, idMap, sharedCount } = state.focal;
+  const cx = W/2 + state.camera.panX, cy = H/2 + state.camera.panY;
+  const zoom = state.camera.zoom;
+  const sx = n => cx + n.x * zoom, sy = n => cy + n.y * zoom;
+
+  // edges
+  const hoveredItem = state.hover;
+  links.forEach(l => {
+    const a = idMap[l.a], b = idMap[l.b];
+    if (!a || !b) return;
+    let isFocused = false;
+    if (hoveredItem) {
+      if (hoveredItem.id === l.a || hoveredItem.id === l.b) isFocused = true;
+    }
+    ctx.strokeStyle = l.color;
+    ctx.globalAlpha = hoveredItem ? (isFocused ? 0.95 : 0.12) : (l.type==='focal' ? 0.35 : 0.55);
+    ctx.lineWidth = l.type === 'focal' ? 1.2 : (isFocused ? 2.4 : 1.6);
+    ctx.beginPath();
+    ctx.moveTo(sx(a), sy(a));
+    ctx.lineTo(sx(b), sy(b));
+    ctx.stroke();
+    // quantity label at midpoint for non-focal edges
+    if (l.qty && state.ui.showLabels && (isFocused || zoom > 0.9)) {
+      const mx = (sx(a)+sx(b))/2, my = (sy(a)+sy(b))/2;
+      ctx.font = '10px -apple-system, "PingFang TC", sans-serif';
+      ctx.fillStyle = '#8892a8';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(`×${l.qty}`, mx, my);
+    }
+  });
+  ctx.globalAlpha = 1;
+
+  // recipe nodes (diamonds)
+  recipeNodes.forEach(n => {
+    const x = sx(n), y = sy(n);
+    const r = 14 * zoom;
+    const isHover = hoveredItem && hoveredItem.id === n.id;
+    if (isHover) {
+      ctx.fillStyle = '#ffffffaa';
+      ctx.beginPath();
+      ctx.moveTo(x, y-r-4); ctx.lineTo(x+r+4, y); ctx.lineTo(x, y+r+4); ctx.lineTo(x-r-4, y);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.fillStyle = TYPE_COLORS[n.recipe.type];
+    ctx.beginPath();
+    ctx.moveTo(x, y-r); ctx.lineTo(x+r, y); ctx.lineTo(x, y+r); ctx.lineTo(x-r, y);
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = '#0b0f17'; ctx.lineWidth = 1.5; ctx.stroke();
+    // label
+    if (state.ui.showLabels) {
+      ctx.font = `bold 11px -apple-system, "PingFang TC", sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      const m = ctx.measureText(n.recipe.name);
+      ctx.fillStyle = 'rgba(11,15,23,0.85)';
+      ctx.fillRect(x-m.width/2-4, y+r+4, m.width+8, 18);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(n.recipe.name, x, y+r+6);
+      ctx.font = '9px -apple-system, "PingFang TC", sans-serif';
+      ctx.fillStyle = TYPE_COLORS[n.recipe.type];
+      ctx.fillText(`+${Math.round(n.recipe.tier_bonus*100)}% · ${n.recipe.score_final.toLocaleString()}`, x, y+r+20);
+    }
+  });
+
+  // ingredient nodes (including focal)
+  const allIng = [focal, ...ingNodes];
+  allIng.forEach(n => {
+    const x = sx(n), y = sy(n);
+    const isFocal = n.kind === 'focal';
+    const r = (isFocal ? 36 : 22) * zoom;
+    const isHover = hoveredItem && hoveredItem.id === n.id;
+
+    if (isHover && !isFocal) {
+      ctx.fillStyle = '#ffffffcc';
+      ctx.beginPath(); ctx.arc(x, y, r+5, 0, Math.PI*2); ctx.fill();
+    }
+    // color: focal is gold; shared ingredients (by 2+ recipes) tinted, others gray
+    let color;
+    if (isFocal) color = '#FFD700';
+    else {
+      const sc = sharedCount[n.name] || 1;
+      if (sc >= 4) color = '#FFB347';
+      else if (sc >= 2) color = '#9FC5E8';
+      else color = '#7B8AAB';
+    }
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.fill();
+    ctx.strokeStyle = '#0b0f17'; ctx.lineWidth = 2; ctx.stroke();
+
+    if (state.ui.showEmoji) {
+      const ingObj = isFocal ? (focal.meta || focal) :
+                     (state.ingredients.find(it => it.name === n.name) || {name: n.name});
+      drawIngredientIcon(ingObj, x, y, r);
+    }
+    if (state.ui.showLabels) {
+      ctx.font = `${isFocal ? 13 : 11}px -apple-system, "PingFang TC", sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      const m = ctx.measureText(n.name);
+      ctx.fillStyle = 'rgba(11,15,23,0.85)';
+      ctx.fillRect(x-m.width/2-5, y+r+4, m.width+10, 16);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(n.name, x, y+r+6);
+      if (!isFocal && sharedCount[n.name] > 1) {
+        ctx.font = '9px -apple-system, "PingFang TC", sans-serif';
+        ctx.fillStyle = '#FFB347';
+        ctx.fillText(`共用於 ${sharedCount[n.name]} 道`, x, y+r+22);
+      }
+    }
+  });
+
+  // hint at top
+  ctx.font = '11px -apple-system, "PingFang TC", sans-serif';
+  ctx.fillStyle = '#8892a8';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText(`聚焦於 ${focal.name}　|　含此食材的料理 ${recipeNodes.length} 道　|　涉及其他食材 ${ingNodes.length} 種`, 18, H - 30);
+}
+
+// =============================================================
+// Hit testing for hover/click
+// =============================================================
+function getHitMain(x, y) {
+  // try nodes first
+  for (const n of state.nodes) {
+    const p = project(n);
+    const r = nodeRadius(n) * p.scale;
+    if (Math.hypot(p.sx - x, p.sy - y) <= r + 4) return { type: 'node', name: n.name, node: n };
+  }
+  // then recipe polygons (point-in-polygon, choose smallest area containing the point)
+  if (state.ui.showPolygons) {
+    const projected = {};
+    state.nodes.forEach(n => { projected[n.name] = project(n); });
+    const recipesList = state.recipes.filter(r => r.selected).map(r => {
+      const pts = r.ingredients.map(i => projected[i.name]).filter(p=>p);
+      if (pts.length < 3) return null;
+      return { recipe: r, points: sortByAngle(pts) };
+    }).filter(p=>p);
+    let bestArea = Infinity, bestRecipe = null;
+    for (const { recipe, points } of recipesList) {
+      if (pointInPolygon({sx:x,sy:y}, points)) {
+        const a = polyArea(points);
+        if (a < bestArea) { bestArea = a; bestRecipe = recipe; }
+      }
+    }
+    if (bestRecipe) return { type: 'recipe', name: bestRecipe.name, recipe: bestRecipe };
+  }
+  return null;
+}
+function getHitFocal(x, y) {
+  if (!state.focal) return null;
+  const cx = W/2 + state.camera.panX, cy = H/2 + state.camera.panY;
+  const zoom = state.camera.zoom;
+  const focal = state.focal.focal;
+  const fr = 36 * zoom;
+  if (Math.hypot(x-cx-focal.x*zoom, y-cy-focal.y*zoom) <= fr) {
+    return { type: 'focal', id: 'focal', node: focal };
+  }
+  for (const n of state.focal.recipeNodes) {
+    const nx = cx + n.x*zoom, ny = cy + n.y*zoom;
+    const r = 14 * zoom;
+    // diamond hit-test approx: manhattan distance
+    if (Math.abs(nx-x) + Math.abs(ny-y) <= r + 3) return { type: 'recipe', id: n.id, node: n };
+  }
+  for (const n of state.focal.ingNodes) {
+    const nx = cx + n.x*zoom, ny = cy + n.y*zoom;
+    const r = 22 * zoom;
+    if (Math.hypot(nx-x, ny-y) <= r + 3) return { type: 'ing', id: n.id, node: n };
+  }
+  return null;
+}
+
+function pointInPolygon(pt, poly) {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const xi = poly[i].sx, yi = poly[i].sy;
+    const xj = poly[j].sx, yj = poly[j].sy;
+    if (((yi > pt.sy) !== (yj > pt.sy)) &&
+        (pt.sx < (xj - xi) * (pt.sy - yi) / (yj - yi + 1e-9) + xi)) inside = !inside;
+  }
+  return inside;
+}
+function polyArea(poly) {
+  let s = 0;
+  for (let i = 0; i < poly.length; i++) {
+    const j = (i+1) % poly.length;
+    s += poly[i].sx * poly[j].sy - poly[j].sx * poly[i].sy;
+  }
+  return Math.abs(s) / 2;
+}
+
+// =============================================================
+// Mouse interaction
+// =============================================================
+let drag = null;
+cv.addEventListener('mousedown', e => {
+  drag = { x: e.clientX, y: e.clientY, shift: e.shiftKey, moved: false };
+  cv.classList.add('dragging');
+});
+window.addEventListener('mouseup', e => {
+  if (drag && !drag.moved) handleClick(e);
+  drag = null; cv.classList.remove('dragging');
+});
+window.addEventListener('mousemove', e => {
+  if (!drag) { handleHover(e); return; }
+  const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+  if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+  if (drag.shift || state.viewMode === 'focal') {
+    state.camera.panX += dx; state.camera.panY += dy;
+  } else {
+    state.camera.rotY += dx * 0.008;
+    state.camera.rotX = Math.max(-1.5, Math.min(1.5, state.camera.rotX + dy * 0.008));
+  }
+  drag.x = e.clientX; drag.y = e.clientY;
+});
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  state.camera.zoom = Math.max(0.2, Math.min(3, state.camera.zoom * (e.deltaY > 0 ? 0.92 : 1.08)));
+}, { passive: false });
+
+function handleHover(e) {
+  const rect = cv.getBoundingClientRect();
+  const x = e.clientX - rect.left, y = e.clientY - rect.top;
+  const tt = document.getElementById('tooltip');
+  let hit;
+  if (state.viewMode === 'focal') hit = getHitFocal(x, y);
+  else hit = getHitMain(x, y);
+
+  if (!hit) {
+    state.hover = null; state.hoverRecipe = null;
+    tt.style.display = 'none';
+    return;
+  }
+
+  if (state.viewMode === 'focal') {
+    state.hover = hit;
+    tt.style.display = 'block';
+    tt.style.left = (e.clientX+14)+'px';
+    tt.style.top = (e.clientY+14)+'px';
+    if (hit.type === 'focal' || hit.type === 'ing') {
+      const m = hit.node.meta || hit.node;
+      const sc = state.focal.sharedCount[hit.node.name];
+      tt.innerHTML = `<b>${m.emoji||state.emojiMap[hit.node.name]||''} ${hit.node.name}</b>
+        <span style="color:#8892a8">${m.name_en||''}</span><br>
+        ${hit.type === 'focal' ? '<span style="color:#FFD700">★ 聚焦食材</span>' :
+          `<span style="color:#8892a8">基礎分 ${m.base_score} · 在此聚焦下共用於 ${sc||1} 道料理</span>`}`;
+    } else {
+      const r = hit.node.recipe;
+      const ingList = r.ingredients.map(i => `${state.emojiMap[i.name]||'●'} ${i.name}×${i.qty}`).join('  ');
+      tt.innerHTML = `<b>${r.name}</b> <span style="color:${TYPE_COLORS[r.type]}">[${TYPE_SHORT[r.type]}]</span><br>
+        <span style="color:#8892a8">+${Math.round(r.tier_bonus*100)}%　${r.score_final.toLocaleString()}</span><br>
+        <span style="color:#c7cde0;font-size:10px">${ingList}</span>`;
+    }
+    return;
+  }
+
+  // main view hover
+  if (hit.type === 'node') {
+    state.hover = hit; state.hoverRecipe = null;
+    const n = hit.node;
+    tt.style.display = 'block';
+    tt.style.left = (e.clientX+14)+'px'; tt.style.top = (e.clientY+14)+'px';
+    tt.innerHTML = `<b>${n.emoji||''} ${n.name}</b> <span style="color:#8892a8">${n.name_en||''}</span><br>
+      <span style="color:#8892a8">基礎分 ${n.base_score} · 出現於 ${n.recipe_count} 道</span><br>
+      <span style="color:#5a6378">點擊 = 進入聚焦檢視</span>`;
+  } else if (hit.type === 'recipe') {
+    state.hover = null; state.hoverRecipe = hit.name;
+    const r = hit.recipe;
+    tt.style.display = 'block';
+    tt.style.left = (e.clientX+14)+'px'; tt.style.top = (e.clientY+14)+'px';
+    const ingList = r.ingredients.map(i => `${state.emojiMap[i.name]||'●'} ${i.name}×${i.qty}`).join('  ');
+    tt.innerHTML = `<b>${r.name}</b> <span style="color:${TYPE_COLORS[r.type]}">[${TYPE_SHORT[r.type]}]</span><br>
+      <span style="color:#8892a8">+${Math.round(r.tier_bonus*100)}%　${r.score_final.toLocaleString()}</span><br>
+      <span style="color:#c7cde0;font-size:10px">${ingList}</span>`;
+  }
+}
+
+function handleClick(e) {
+  const rect = cv.getBoundingClientRect();
+  const x = e.clientX - rect.left, y = e.clientY - rect.top;
+  if (state.viewMode === 'focal') {
+    const hit = getHitFocal(x, y);
+    if (hit && hit.type === 'ing') {
+      // jump focal to this ingredient
+      enterFocal(hit.node.name);
+    } else if (hit && hit.type === 'focal') {
+      // already focal, do nothing
+    } else if (!hit) {
+      // click empty: exit focal
+      // disabled — user can use back button
+    }
+    return;
+  }
+  const hit = getHitMain(x, y);
+  if (hit && hit.type === 'node') {
+    state.selected = hit.node;
+    showInfoPanel(hit.node, false);
+  } else if (hit && hit.type === 'recipe') {
+    showRecipeInfoPanel(hit.recipe);
+  } else {
+    state.selected = null;
+    document.getElementById('infopanel').style.display = 'none';
+  }
+}
+
+function showInfoPanel(n) {
+  const panel = document.getElementById('infopanel');
+  panel.style.display = 'block';
+  const m = state.ingMeta[n.name] || n;
+  const recipesByType = {};
+  (m.recipes || []).forEach(r => { (recipesByType[r.type] = recipesByType[r.type] || []).push(r); });
+  const listHtml = Object.entries(recipesByType).map(([type, rs]) =>
+    rs.sort((a,b)=>b.score-a.score).map(r => `<li>
+      <span style="color:${TYPE_COLORS[type]}">●</span>
+      <span style="flex:1">${r.name}</span>
+      <span style="color:#8892a8">+${Math.round(r.tier*100)}% ×${r.qty}</span></li>`).join('')
+  ).join('');
+  panel.innerHTML = `
+    <h3>${m.emoji||''} ${m.name} <span style="color:#8892a8;font-size:11px;font-weight:400">${m.name_en||''}</span></h3>
+    <div class="score">基礎分 ${m.base_score} · 連通度 ${m.recipe_count} · 總需求量 ${m.total_demand}</div>
+    <ul>${listHtml}</ul>
+    ${state.viewMode === 'force3d' ? `<div class="focus-cta" id="focus-cta">🎯 聚焦檢視：以 ${m.name} 為中心展開所有料理</div>` : ''}`;
+  const cta = document.getElementById('focus-cta');
+  if (cta) cta.addEventListener('click', () => enterFocal(m.name));
+}
+
+function showRecipeInfoPanel(r) {
+  const panel = document.getElementById('infopanel');
+  panel.style.display = 'block';
+  const ingHtml = r.ingredients.map(i => `<li>
+    <span style="font-size:14px">${state.emojiMap[i.name]||'●'}</span>
+    <span style="flex:1">${i.name}</span>
+    <span style="color:#8892a8">×${i.qty}</span></li>`).join('');
+  panel.innerHTML = `
+    <h3 style="color:${TYPE_COLORS[r.type]}">${r.name}</h3>
+    <div class="score">${TYPE_SHORT[r.type]} · +${Math.round(r.tier_bonus*100)}% · 總分 ${r.score_final.toLocaleString()}</div>
+    <ul>${ingHtml}</ul>`;
+}
+
+function enterFocal(name) {
+  buildFocalGraph(name);
+  state.viewMode = 'focal';
+  state.camera.panX = 0; state.camera.panY = 0; state.camera.zoom = 1;
+  document.getElementById('mode-name').textContent = `聚焦：${name}`;
+  document.getElementById('back-btn').classList.add('show');
+  document.getElementById('infopanel').style.display = 'none';
+  // pre-warm focal sim
+  for (let i = 0; i < 200; i++) tickFocal();
+}
+function exitFocal() {
+  state.viewMode = 'force3d';
+  state.focal = null;
+  state.camera.panX = 0; state.camera.panY = 0;
+  document.getElementById('mode-name').textContent = '3D 力導向';
+  document.getElementById('back-btn').classList.remove('show');
+}
+document.getElementById('back-btn').addEventListener('click', exitFocal);
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && state.viewMode === 'focal') exitFocal();
+});
+
+// =============================================================
+// Size mode + control panel bindings
+// =============================================================
+document.getElementById('size-mode').addEventListener('click', e => {
+  if (e.target.tagName !== 'BUTTON') return;
+  document.querySelectorAll('#size-mode button').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  state.sizeMode = e.target.dataset.mode;
+  const descs = {
+    recipe_count: '食材出現在多少道目前選中的料理裡',
+    base_score: '食材本身的基礎分值',
+    total_demand: '選中料理裡，這個食材的數量加總'
+  };
+  document.getElementById('size-desc').textContent = descs[state.sizeMode];
+});
+
+// Polygon mode segmented control
+document.getElementById('poly-mode').addEventListener('click', e => {
+  if (e.target.tagName !== 'BUTTON') return;
+  document.querySelectorAll('#poly-mode button').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  state.ui.polygonMode = e.target.dataset.mode;
+  const descs = {
+    always: '總是顯示所有料理外框（料理多時容易糊掉）',
+    hover: '預設：滑鼠移到食材上時，才顯示包含該食材的料理外框',
+    off: '完全不畫外框，純粹看邊'
+  };
+  document.getElementById('poly-desc').textContent = descs[state.ui.polygonMode];
+});
+
+// View-layer segmented control
+document.getElementById('view-layer').addEventListener('click', e => {
+  if (e.target.tagName !== 'BUTTON') return;
+  document.querySelectorAll('#view-layer button').forEach(b => b.classList.remove('active'));
+  e.target.classList.add('active');
+  state.ui.viewLayer = e.target.dataset.mode;
+  const descs = {
+    edges: '兩兩配對：每道料理 4 個食材兩兩連線，4 點共 6 條邊。',
+    paths: '路徑：每道料理 = 一條從共用食材出發、到獨有食材結束的線。線尾貼料理名稱。',
+    both: '兩種模式疊加。資訊最完整也最複雜。'
+  };
+  document.getElementById('layer-desc').textContent = descs[state.ui.viewLayer];
+});
+
+// New path-related bindings
+bindToggle('t-tailtag', 'showTailTag');
+bindSlider('s-pathsep', 'pathSep', state.ui, 'v-pathsep', v => Math.round(v).toString());
+bindSlider('s-pathwidth', 'pathWidth', state.ui, 'v-pathwidth', v => v.toFixed(1));
+
+function bindToggle(id, key) {
+  document.getElementById(id).addEventListener('change', e => {
+    state.ui[key] = e.target.checked;
+  });
+}
+bindToggle('t-emoji', 'showEmoji');
+bindToggle('t-labels', 'showLabels');
+bindToggle('t-highlight', 'highlightFocus');
+
+function bindSlider(id, key, target, valId, fmt) {
+  document.getElementById(id).addEventListener('input', e => {
+    const v = parseFloat(e.target.value);
+    target[key] = v;
+    document.getElementById(valId).textContent = fmt(v);
+  });
+}
+bindSlider('s-nodescale', 'nodeScale', state.ui, 'v-nodescale', v => v.toFixed(1) + '×');
+bindSlider('s-edgeopacity', 'edgeOpacity', state.ui, 'v-edgeopacity', v => v.toFixed(2));
+bindSlider('s-edgewidth', 'edgeWidth', state.ui, 'v-edgewidth', v => v.toFixed(1));
+bindSlider('s-polyopacity', 'polyOpacity', state.ui, 'v-polyopacity', v => v.toFixed(2));
+bindSlider('s-repulsion', 'repulsion', state.sim, 'v-repulsion', v => Math.round(v).toString());
+bindSlider('s-springlen', 'springLen', state.sim, 'v-springlen', v => Math.round(v).toString());
+bindSlider('s-springstr', 'spring', state.sim, 'v-springstr', v => v.toFixed(3));
+bindSlider('s-gravity', 'gravity', state.sim, 'v-gravity', v => v.toFixed(3));
+
+document.getElementById('btn-shuffle').addEventListener('click', () => {
+  state.nodes.forEach(n => {
+    n.x = (Math.random()-0.5)*300; n.y = (Math.random()-0.5)*300; n.z = (Math.random()-0.5)*300;
+    n.vx = n.vy = n.vz = 0;
+  });
+});
+document.getElementById('btn-resetcam').addEventListener('click', () => {
+  state.camera = { rotX: 0.4, rotY: 0.6, zoom: 1, panX: 0, panY: 0 };
+});
+
+document.getElementById('collapse-btn').addEventListener('click', () => {
+  const cp = document.getElementById('controlpanel');
+  cp.classList.toggle('collapsed');
+  document.getElementById('collapse-btn').textContent = cp.classList.contains('collapsed') ? '⮜' : '⮞';
+});
+
+// roundRect polyfill (older Safari)
+if (!CanvasRenderingContext2D.prototype.roundRect) {
+  CanvasRenderingContext2D.prototype.roundRect = function(x, y, w, h, r) {
+    this.beginPath();
+    this.moveTo(x+r, y);
+    this.lineTo(x+w-r, y); this.quadraticCurveTo(x+w, y, x+w, y+r);
+    this.lineTo(x+w, y+h-r); this.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
+    this.lineTo(x+r, y+h); this.quadraticCurveTo(x, y+h, x, y+h-r);
+    this.lineTo(x, y+r); this.quadraticCurveTo(x, y, x+r, y);
+    this.closePath();
+  };
+}
+
+// =============================================================
+// Boot
+// =============================================================
+function updateImgStatus() {
+  const s = state.imgStats;
+  const total = state.ingredients.length;
+  const el = document.getElementById('img-stats-text');
+  if (!el) return;
+  el.innerHTML = `
+    <span style="color:#4CD964">Serebii ${s.serebii}</span> /
+    <span style="color:#9FC5E8">Excel ${s.local}</span> /
+    <span style="color:#8892a8">Emoji fallback ${total - s.serebii - s.local}</span>
+    <span style="color:#5a6378">(共 ${total})</span>`;
+}
+
+function loop() {
+  tick(); tickFocal(); render(); updateImgStatus();
+  requestAnimationFrame(loop);
+}
+window.addEventListener('load', () => {
+  resize();
+  preloadImages();
+  renderTierFilter(); renderRecipeList(); rebuildGraph();
+  for (let i = 0; i < 200; i++) tick();
+  loop();
+});
+</script>
+</body>
+</html>

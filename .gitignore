@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+*.egg-info/
+
+# Playwright / screenshots (keep dir, ignore content auto-generated during dev)
+screenshots/
+
+# Node (if ever used)
+node_modules/
+
+# Old Cowork-era explorers (keep as historical ref but don't build on them)
+# Uncomment to exclude from repo entirely:
+# pokemon_sleep_recipe_network.html
+# pokemon_sleep_explorer_v6.html

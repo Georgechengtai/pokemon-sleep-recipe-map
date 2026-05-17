@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>寶睡食材-料理探索 v6</title>
+<style>
+  :root {
+    --bg: #0b0f17; --panel: #131826; --border: #232a3a;
+    --text: #e6e8ee; --muted: #8892a8; --dim: #5a6378;
+    --accent: #5b73c4;
+    --curry: #FF8A3D; --salad: #4CD964; --dessert: #FF6B9D;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%;
+    font-family: -apple-system, "Apple Color Emoji", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    background: var(--bg); color: var(--text); font-size: 13px; }
+  #app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+
+  /* header & tabs */
+  header { background: var(--panel); border-bottom: 1px solid var(--border);
+    padding: 8px 16px; display: flex; gap: 16px; align-items: center; }
+  header h1 { margin: 0; font-size: 16px; font-weight: 600; }
+  nav.tabs { display: flex; gap: 2px; flex: 1; }
+  nav.tabs button { background: transparent; border: none; color: var(--muted);
+    padding: 8px 14px; cursor: pointer; font-family: inherit; font-size: 12px;
+    border-radius: 5px; transition: 0.15s; }
+  nav.tabs button:hover { background: rgba(255,255,255,0.05); color: var(--text); }
+  nav.tabs button.active { background: #2c3550; color: #fff; }
+
+  /* main layout */
+  main { display: grid; grid-template-columns: 280px 1fr; min-height: 0; }
+
+  /* sidebar */
+  aside { background: var(--panel); border-right: 1px solid var(--border);
+    padding: 14px 16px; overflow-y: auto; min-height: 0; }
+  aside h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); margin: 14px 0 6px 0; font-weight: 500; }
+  aside h2:first-child { margin-top: 0; }
+  .tier-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+  .tier-btn { background: #1c2334; color: var(--muted); border: 1px solid transparent;
+    padding: 5px 0; cursor: pointer; font-size: 11px; border-radius: 4px;
+    font-family: inherit; transition: 0.15s; }
+  .tier-btn.active { background: #2c3550; color: #fff; border-color: #3a4258; }
+  .tier-btn:hover:not(.active) { color: var(--text); background: #232a3a; }
+  .search-input { width: 100%; background: #1c2334; border: 1px solid #2c3550;
+    color: var(--text); padding: 6px 10px; border-radius: 5px; font-family: inherit; font-size: 12px; }
+  .stat-row { display: flex; justify-content: space-between; padding: 3px 0;
+    font-size: 11px; color: var(--muted); }
+  .stat-row span:last-child { color: var(--text); font-weight: 500; }
+
+  /* viz container */
+  section.viz-container { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+  .tab-pane { display: none; width: 100%; height: 100%; overflow: auto; }
+  .tab-pane.active { display: block; }
+
+  /* matrix */
+  .matrix-wrap { padding: 16px; min-width: max-content; }
+  .matrix-help { font-size: 11px; color: var(--muted); margin-bottom: 8px; }
+  .matrix { display: grid; gap: 1px; background: var(--border);
+    border: 1px solid var(--border); width: max-content; }
+  .matrix > div { background: var(--bg); padding: 2px; }
+  .mcell { width: 26px; height: 26px; display: flex; align-items: center;
+    justify-content: center; font-size: 9px; color: rgba(255,255,255,0.85);
+    font-weight: 600; cursor: pointer; transition: 0.1s; }
+  .mcell.empty { background: var(--panel); }
+  .mcell.filled:hover { outline: 2px solid #fff; outline-offset: -1px; z-index: 2; position: relative; }
+  .mrow-head { display: flex; align-items: center; gap: 6px; padding: 0 8px;
+    background: var(--panel); white-space: nowrap; min-width: 130px; }
+  .mrow-head img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover;
+    background: #1c2334; }
+  .mrow-head .ing-name { font-size: 11px; flex: 1; }
+  .mrow-head .ing-count { font-size: 9px; color: var(--muted); }
+  .mcol-head { writing-mode: vertical-rl; text-orientation: upright;
+    background: var(--panel); padding: 6px 2px; white-space: nowrap;
+    min-height: 130px; font-size: 11px; cursor: pointer;
+    letter-spacing: 1px; display: flex; flex-direction: column; align-items: center; }
+  .mcol-head .recipe-name { font-weight: 500; }
+  .mcol-head .recipe-tier { color: var(--muted); font-size: 9px; margin-left: 4px; }
+  .matrix-corner { background: var(--panel); }
+
+  /* chord */
+  .chord-wrap { padding: 8px; height: 100%; display: flex; flex-direction: column; }
+  #chord-svg { flex: 1; min-height: 0; }
+  .chord-arc { cursor: pointer; }
+  .chord-ribbon { cursor: pointer; transition: 0.15s; mix-blend-mode: screen; }
+  .chord-ribbon:hover { stroke-width: 2; }
+
+  /* network 2d */
+  .network-wrap { padding: 8px; height: 100%; display: flex; flex-direction: column; }
+  #net-svg { flex: 1; min-height: 0; cursor: grab; }
+  #net-svg.dragging { cursor: grabbing; }
+
+  /* cards */
+  .cards-toolbar { padding: 10px 16px; border-bottom: 1px solid var(--border);
+    display: flex; gap: 8px; align-items: center; }
+  .cards-toolbar select { background: #1c2334; color: var(--text); border: 1px solid #2c3550;
+    padding: 4px 8px; border-radius: 4px; font-family: inherit; font-size: 12px; }
+  .cards-grid { padding: 16px; display: grid; gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px; transition: 0.15s; }
+  .card:hover { border-color: #3a4670; transform: translateY(-2px); }
+  .card-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .card-img { width: 40px; height: 40px; border-radius: 6px; object-fit: cover; background: #1c2334; }
+  .card-title { flex: 1; min-width: 0; }
+  .card-name { font-size: 12px; font-weight: 600; color: #fff; line-height: 1.2; }
+  .card-meta { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .card-type-pill { display: inline-block; padding: 1px 6px; border-radius: 8px;
+    font-size: 9px; font-weight: 600; margin-right: 4px; }
+  .card-ings { display: flex; gap: 4px; flex-wrap: wrap; }
+  .card-ing { display: flex; align-items: center; gap: 4px;
+    background: #1c2334; padding: 3px 6px; border-radius: 4px; font-size: 10px; }
+  .card-ing img { width: 18px; height: 18px; border-radius: 50%; object-fit: cover; background: #2c3550; }
+  .card-ing .qty { color: var(--muted); }
+
+  /* focal */
+  .focal-wrap { padding: 8px; height: 100%; display: flex; flex-direction: column; }
+  .focal-toolbar { padding: 8px 16px; display: flex; gap: 12px; align-items: center;
+    border-bottom: 1px solid var(--border); }
+  .focal-toolbar label { font-size: 11px; color: var(--muted); }
+  .focal-toolbar select { background: #1c2334; color: var(--text); border: 1px solid #2c3550;
+    padding: 4px 8px; border-radius: 4px; font-family: inherit; font-size: 12px; }
+  #focal-svg { flex: 1; min-height: 0; }
+
+  /* tooltip */
+  #tooltip { position: absolute; pointer-events: none; background: var(--panel);
+    border: 1px solid #2c3550; padding: 6px 10px; border-radius: 6px; font-size: 11px;
+    color: #fff; display: none; z-index: 10; max-width: 280px; line-height: 1.5;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+
+  /* footer */
+  footer { font-size: 10px; color: var(--muted); padding: 6px 16px;
+    border-top: 1px solid var(--border); background: var(--panel);
+    display: flex; gap: 12px; justify-content: space-between; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>寶睡食材-料理探索 <span style="color:var(--muted);font-weight:400">v6 · 多視圖比較</span></h1>
+    <nav class="tabs" id="tabs">
+      <button data-tab="matrix" class="active">矩陣</button>
+      <button data-tab="chord">弦圖</button>
+      <button data-tab="network">2D 網路</button>
+      <button data-tab="cards">料理卡片</button>
+      <button data-tab="focal">聚焦同心圓</button>
+    </nav>
+  </header>
+  <main>
+    <aside>
+      <h2>階級篩選</h2>
+      <div class="tier-grid" id="tier-filter"></div>
+      <h2>搜尋</h2>
+      <input class="search-input" id="search" placeholder="食材名 / 料理名...">
+      <h2>聚焦食材（focal tab）</h2>
+      <select id="focal-ing" class="search-input"></select>
+      <h2>本次選中</h2>
+      <div id="stats"></div>
+      <h2>圖片狀態</h2>
+      <div id="img-stats" class="stat-row" style="display:block; color:var(--muted)"></div>
+    </aside>
+    <section class="viz-container">
+      <div class="tab-pane active" data-tab="matrix"><div id="matrix-root"></div></div>
+      <div class="tab-pane" data-tab="chord">
+        <div class="chord-wrap">
+          <svg id="chord-svg" viewBox="0 0 1000 1000" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+      </div>
+      <div class="tab-pane" data-tab="network">
+        <div class="network-wrap">
+          <svg id="net-svg" viewBox="0 0 1400 900" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+      </div>
+      <div class="tab-pane" data-tab="cards">
+        <div class="cards-toolbar" id="cards-toolbar"></div>
+        <div class="cards-grid" id="cards-grid"></div>
+      </div>
+      <div class="tab-pane" data-tab="focal">
+        <div class="focal-wrap">
+          <div class="focal-toolbar" id="focal-toolbar"></div>
+          <svg id="focal-svg" viewBox="0 0 1200 1200" preserveAspectRatio="xMidYMid meet"></svg>
+        </div>
+      </div>
+    </section>
+    <div id="tooltip"></div>
+  </main>
+  <footer>
+    <span>v6 · 你可以切換上方 tab 比較 4 種主視圖 + focal 同心圓 視角，挑出你最看得懂的</span>
+    <span>SVG / DOM 渲染（不依賴 canvas drawImage，圖片載入更穩定）</span>
+  </footer>
+</div>
+
+<script src="_data.js"></script>
+<script>
+// =============================================================
+// Constants & state
+// =============================================================
+const TYPE_COLORS = {
+  '咖哩、濃湯': '#FF8A3D', '沙拉': '#4CD964', '點心、飲料': '#FF6B9D'
+};
+const TYPE_SHORT = { '咖哩、濃湯': '咖哩', '沙拉': '沙拉', '點心、飲料': '點心' };
+const ALL_TIERS = [...new Set(RAW_DATA.recipes.map(r => r.tier_bonus))].sort((a,b)=>a-b);
+
+const state = {
+  ingredients: RAW_DATA.ingredients,
+  recipes: RAW_DATA.recipes,
+  enabledTiers: new Set(ALL_TIERS.filter(t => t >= 0.35)),
+  searchQuery: '',
+  activeTab: 'matrix',
+  hoverIng: null,
+  hoverRecipe: null,
+  focalIng: '醒腦咖啡豆',
+  cardsSort: 'score',
+  imgStatus: { tried: 0, loaded: 0, failed: 0 },
+  spotlightIng: null,
+};
+
+function selectedRecipes() {
+  const q = state.searchQuery.toLowerCase().trim();
+  return state.recipes.filter(r => {
+    if (!state.enabledTiers.has(r.tier_bonus)) return false;
+    if (!q) return true;
+    if (r.name.toLowerCase().includes(q)) return true;
+    if (r.name_en && r.name_en.toLowerCase().includes(q)) return true;
+    return r.ingredients.some(i => i.name.toLowerCase().includes(q));
+  });
+}
+function ingredientStats(recipes) {
+  recipes = recipes || selectedRecipes();
+  const stats = {};
+  state.ingredients.forEach(i => {
+    stats[i.name] = { ...i, recipe_count: 0, total_demand: 0, recipes: [] };
+  });
+  recipes.forEach(r => r.ingredients.forEach(i => {
+    const s = stats[i.name]; if (!s) return;
+    s.recipe_count += 1; s.total_demand += i.qty;
+    s.recipes.push({ name: r.name, type: r.type, qty: i.qty, tier: r.tier_bonus, score: r.score_final });
+  }));
+  return stats;
+}
+
+// Tooltip
+const tip = document.getElementById('tooltip');
+function showTip(html, e) {
+  tip.style.display = 'block';
+  tip.innerHTML = html;
+  const x = e.clientX + 14, y = e.clientY + 14;
+  tip.style.left = Math.min(x, window.innerWidth - 280) + 'px';
+  tip.style.top = Math.min(y, window.innerHeight - 100) + 'px';
+}
+function hideTip() { tip.style.display = 'none'; }
+
+// =============================================================
+// Sidebar filters
+// =============================================================
+function renderTierFilter() {
+  const el = document.getElementById('tier-filter');
+  el.innerHTML = '';
+  ALL_TIERS.forEach(t => {
+    const b = document.createElement('button');
+    b.className = 'tier-btn' + (state.enabledTiers.has(t) ? ' active' : '');
+    b.textContent = `+${Math.round(t*100)}%`;
+    b.onclick = () => {
+      if (state.enabledTiers.has(t)) state.enabledTiers.delete(t);
+      else state.enabledTiers.add(t);
+      renderTierFilter();
+      reRenderActive();
+    };
+    el.appendChild(b);
+  });
+}
+function renderFocalSelector() {
+  const sel = document.getElementById('focal-ing');
+  sel.innerHTML = state.ingredients.map(i =>
+    `<option value="${i.name}" ${i.name === state.focalIng ? 'selected' : ''}>
+      ${i.emoji||''} ${i.name}</option>`).join('');
+  sel.onchange = e => { state.focalIng = e.target.value; if (state.activeTab === 'focal') renderFocal(); };
+}
+function renderStats() {
+  const sel = selectedRecipes();
+  const stats = ingredientStats(sel);
+  const used = Object.values(stats).filter(s => s.recipe_count > 0).length;
+  document.getElementById('stats').innerHTML = `
+    <div class="stat-row"><span>料理</span><span>${sel.length}</span></div>
+    <div class="stat-row"><span>食材種類</span><span>${used} / 19</span></div>
+    <div class="stat-row"><span>總分</span><span>${sel.reduce((a,b)=>a+b.score_final,0).toLocaleString()}</span></div>`;
+}
+function renderImgStatus() {
+  const s = state.imgStatus;
+  document.getElementById('img-stats').textContent =
+    `已載入 ${s.loaded} / ${s.tried} · 失敗 ${s.failed}`;
+}
+
+// =============================================================
+// Tabs
+// =============================================================
+document.getElementById('tabs').addEventListener('click', e => {
+  if (e.target.tagName !== 'BUTTON') return;
+  state.activeTab = e.target.dataset.tab;
+  document.querySelectorAll('#tabs button').forEach(b =>
+    b.classList.toggle('active', b.dataset.tab === state.activeTab));
+  document.querySelectorAll('.tab-pane').forEach(p =>
+    p.classList.toggle('active', p.dataset.tab === state.activeTab));
+  reRenderActive();
+});
+function reRenderActive() {
+  const fns = { matrix: renderMatrix, chord: renderChord, network: renderNetwork,
+                cards: renderCards, focal: renderFocal };
+  fns[state.activeTab] && fns[state.activeTab]();
+  renderStats();
+}
+
+// =============================================================
+// Image helper: load <img> with onerror tracking
+// =============================================================
+function imgHTML(ing, size=24, classes='') {
+  const u = ing.image_url || ing.image;
+  const fallback = ing.emoji || '●';
+  if (!u) {
+    return `<span class="${classes}" style="width:${size}px;height:${size}px;
+      display:inline-flex;align-items:center;justify-content:center;font-size:${size*0.85}px">${fallback}</span>`;
+  }
+  const id = 'img_' + Math.random().toString(36).slice(2,8);
+  setTimeout(() => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    state.imgStatus.tried += 1;
+    el.onload = () => { state.imgStatus.loaded += 1; renderImgStatus(); };
+    el.onerror = () => {
+      state.imgStatus.failed += 1;
+      el.replaceWith(Object.assign(document.createElement('span'),
+        { textContent: fallback,
+          style: `width:${size}px;height:${size}px;display:inline-flex;align-items:center;justify-content:center;font-size:${size*0.85}px;background:#1c2334;border-radius:50%`}));
+      renderImgStatus();
+    };
+  }, 0);
+  return `<img id="${id}" src="${u}" class="${classes}" alt="${ing.name}"
+    style="width:${size}px;height:${size}px;border-radius:50%;object-fit:cover;background:#1c2334">`;
+}
+
+// SVG image helper — returns <image> string; the SVG image element loads
+// cross-origin without taint issues (we never readback canvas pixels).
+function svgImg(url, x, y, size, fallback, name) {
+  if (!url) {
+    return `<text x="${x}" y="${y}" font-size="${size*0.85}"
+      text-anchor="middle" dominant-baseline="central" fill="#fff"
+      style="font-family:Apple Color Emoji,Segoe UI Emoji,sans-serif">${fallback}</text>`;
+  }
+  const id = 'svg_' + Math.random().toString(36).slice(2,8);
+  setTimeout(() => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    state.imgStatus.tried += 1;
+    el.addEventListener('load', () => { state.imgStatus.loaded += 1; renderImgStatus(); });
+    el.addEventListener('error', () => {
+      state.imgStatus.failed += 1;
+      const p = el.parentNode; if (!p) return;
+      const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      txt.setAttribute('x', x); txt.setAttribute('y', y);
+      txt.setAttribute('font-size', size*0.85);
+      txt.setAttribute('text-anchor', 'middle');
+      txt.setAttribute('dominant-baseline', 'central');
+      txt.setAttribute('fill', '#fff');
+      txt.style.fontFamily = 'Apple Color Emoji, Segoe UI Emoji, sans-serif';
+      txt.textContent = fallback;
+      p.appendChild(txt); el.remove();
+      renderImgStatus();
+    });
+  }, 0);
+  return `<image id="${id}" href="${url}" x="${x-size/2}" y="${y-size/2}"
+    width="${size}" height="${size}" clip-path="circle(${size/2}px at ${size/2}px ${size/2}px)"/>`;
+}
+
+// =============================================================
+// VIZ 1: Matrix
+// =============================================================
+function renderMatrix() {
+  const root = document.getElementById('matrix-root');
+  const sel = selectedRecipes().sort((a,b) => {
+    if (a.type !== b.type) return a.type < b.type ? -1 : 1;
+    if (a.tier_bonus !== b.tier_bonus) return b.tier_bonus - a.tier_bonus;
+    return b.score_final - a.score_final;
+  });
+  const stats = ingredientStats(sel);
+  const ings = state.ingredients.slice().sort((a,b) =>
+    (stats[b.name]?.recipe_count || 0) - (stats[a.name]?.recipe_count || 0));
+
+  if (sel.length === 0) {
+    root.innerHTML = '<div class="matrix-wrap"><div class="matrix-help">沒有符合篩選的料理。請開啟更多階級。</div></div>';
+    return;
+  }
+
+  let html = '<div class="matrix-wrap">';
+  html += '<div class="matrix-help">行：食材（按連通度排序）· 列：料理（按系列 → 階級 → 總分排序）· 格子數字 = 用量</div>';
+  html += `<div class="matrix" style="grid-template-columns: 140px repeat(${sel.length}, 26px); grid-template-rows: 130px repeat(${ings.length}, 26px);">`;
+  html += '<div class="matrix-corner"></div>';
+  sel.forEach((r,i) => {
+    html += `<div class="mcol-head" data-recipe-name="${r.name}"
+      onmouseenter="hoverRecipe('${r.name}', event)" onmouseleave="hideTip()"
+      style="border-bottom: 2px solid ${TYPE_COLORS[r.type]}">
+      <span class="recipe-name">${r.name}</span><span class="recipe-tier">+${Math.round(r.tier_bonus*100)}%</span>
+    </div>`;
+  });
+  ings.forEach(ing => {
+    const s = stats[ing.name];
+    html += `<div class="mrow-head" data-ing="${ing.name}" onmouseenter="hoverIng('${ing.name}', event)" onmouseleave="hideTip()">
+      ${imgHTML(ing, 22)}
+      <span class="ing-name">${ing.name}</span>
+      <span class="ing-count">${s?.recipe_count||0}</span>
+    </div>`;
+    sel.forEach(r => {
+      const ir = r.ingredients.find(i => i.name === ing.name);
+      if (ir) {
+        const intensity = Math.min(1, ir.qty / 40);
+        html += `<div class="mcell filled"
+          style="background:${TYPE_COLORS[r.type]}; opacity:${0.25 + intensity*0.75}"
+          onmouseenter="hoverCell('${r.name}','${ing.name}',${ir.qty},event)" onmouseleave="hideTip()">${ir.qty}</div>`;
+      } else {
+        html += `<div class="mcell empty"></div>`;
+      }
+    });
+  });
+  html += '</div></div>';
+  root.innerHTML = html;
+}
+// Chord spotlight: when hovering an ingredient, brighten ribbons containing it.
+window.spotlightIng = (name) => {
+  document.querySelectorAll('.chord-ribbon').forEach(p => {
+    const ings = (p.getAttribute('data-ings') || '').split('|');
+    if (ings.includes(name)) {
+      p.setAttribute('fill-opacity', '0.5');
+      p.setAttribute('stroke-opacity', '0.95');
+    } else {
+      p.setAttribute('fill-opacity', '0.015');
+      p.setAttribute('stroke-opacity', '0.08');
+    }
+  });
+};
+window.restoreRibbon = (el) => {
+  // restore single ribbon to default OR to spotlight state if an ingredient is spotlit
+  if (state.spotlightIng) {
+    const ings = (el.getAttribute('data-ings') || '').split('|');
+    if (ings.includes(state.spotlightIng)) {
+      el.setAttribute('fill-opacity', '0.5');
+      el.setAttribute('stroke-opacity', '0.95');
+    } else {
+      el.setAttribute('fill-opacity', '0.015');
+      el.setAttribute('stroke-opacity', '0.08');
+    }
+  } else {
+    el.setAttribute('fill-opacity', '0.04');
+    el.setAttribute('stroke-opacity', '0.25');
+  }
+};
+window.clearSpotlight = () => {
+  document.querySelectorAll('.chord-ribbon').forEach(p => {
+    p.setAttribute('fill-opacity', '0.04');
+    p.setAttribute('stroke-opacity', '0.25');
+  });
+};
+
+window.hoverRecipe = (name, e) => {
+  const r = state.recipes.find(x => x.name === name);
+  if (!r) return;
+  const ingList = r.ingredients.map(i => `${state.ingredients.find(x=>x.name===i.name)?.emoji||'●'} ${i.name}×${i.qty}`).join('  ');
+  showTip(`<b>${r.name}</b> <span style="color:${TYPE_COLORS[r.type]}">[${TYPE_SHORT[r.type]}]</span><br>
+    <span style="color:var(--muted)">+${Math.round(r.tier_bonus*100)}% · ${r.score_final.toLocaleString()}</span><br>
+    <span style="color:#c7cde0;font-size:10px">${ingList}</span>`, e);
+};
+window.hoverIng = (name, e) => {
+  const ing = state.ingredients.find(x => x.name === name);
+  const s = ingredientStats()[name];
+  showTip(`<b>${ing.emoji||''} ${ing.name}</b> <span style="color:var(--muted)">${ing.name_en}</span><br>
+    <span style="color:var(--muted)">基礎分 ${ing.base_score} · 出現於 ${s?.recipe_count||0} 道</span>`, e);
+  if (state.activeTab === 'chord') {
+    state.spotlightIng = name;
+    spotlightIng(name);
+  }
+};
+window.unhoverIng = () => {
+  hideTip();
+  if (state.activeTab === 'chord' && state.spotlightIng) {
+    state.spotlightIng = null;
+    clearSpotlight();
+  }
+};
+window.hoverCell = (rName, iName, qty, e) => {
+  showTip(`<b>${rName}</b> 需要 <b>${iName}</b> × ${qty}`, e);
+};
+
+// =============================================================
+// VIZ 2: Chord diagram
+// =============================================================
+function renderChord() {
+  const svg = document.getElementById('chord-svg');
+  const sel = selectedRecipes();
+  const cx = 500, cy = 500, R = 380, imgR = 32;
+  const N = state.ingredients.length;
+
+  let body = '';
+
+  // Ring background
+  body += `<circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#232a3a" stroke-width="1"/>`;
+
+  // Ingredient anchor angle (top = 0)
+  function angle(i) { return (i / N) * Math.PI * 2 - Math.PI/2; }
+  function pt(a, r) { return { x: cx + Math.cos(a) * r, y: cy + Math.sin(a) * r }; }
+
+  const stats = ingredientStats(sel);
+
+  // Ribbons (recipes) — drawn first so labels render on top
+  sel.forEach(r => {
+    const pts = r.ingredients.map(i => {
+      const idx = state.ingredients.findIndex(x => x.name === i.name);
+      const a = angle(idx);
+      return pt(a, R);
+    });
+    if (pts.length < 3) return;
+    // sort points by angle around center to avoid self-intersect
+    const sorted = pts.slice().sort((a, b) =>
+      Math.atan2(a.y - cy, a.x - cx) - Math.atan2(b.y - cy, b.x - cx));
+    // closed bezier path: each segment uses control point pulled toward center
+    let d = `M ${sorted[0].x} ${sorted[0].y} `;
+    for (let i = 0; i < sorted.length; i++) {
+      const a = sorted[i], b = sorted[(i+1) % sorted.length];
+      const mx = (a.x + b.x)/2, my = (a.y + b.y)/2;
+      const ccx = mx + (cx - mx) * 0.65, ccy = my + (cy - my) * 0.65;
+      d += `Q ${ccx} ${ccy} ${b.x} ${b.y} `;
+    }
+    d += 'Z';
+    const ingList = r.ingredients.map(i => i.name).join('|');
+    body += `<path class="chord-ribbon" d="${d}" fill="${TYPE_COLORS[r.type]}" fill-opacity="0.04"
+      stroke="${TYPE_COLORS[r.type]}" stroke-width="0.8" stroke-opacity="0.25"
+      data-recipe="${r.name}" data-ings="${ingList}" data-type="${r.type}"
+      onmouseenter="hoverRecipe('${r.name}', event); this.setAttribute('fill-opacity','0.7'); this.setAttribute('stroke-opacity','1');"
+      onmouseleave="hideTip(); restoreRibbon(this);"/>`;
+  });
+
+  // Ingredient nodes around ring
+  state.ingredients.forEach((ing, i) => {
+    const a = angle(i);
+    const p = pt(a, R + 36);
+    const lblP = pt(a, R + 80);
+    const s = stats[ing.name];
+    const dim = (s?.recipe_count || 0) === 0 ? 0.35 : 1;
+    body += `<g opacity="${dim}" style="cursor:pointer" onmouseenter="hoverIng('${ing.name}', event)" onmouseleave="unhoverIng()">`;
+    body += `<circle cx="${p.x}" cy="${p.y}" r="${imgR/2 + 3}" fill="#1c2334" stroke="#fff" stroke-width="1"/>`;
+    body += svgImg(ing.image_url || ing.image, p.x, p.y, imgR, ing.emoji, ing.name);
+    // label
+    const ta = (a > -Math.PI/2 && a < Math.PI/2) ? 'start' : 'end';
+    body += `<text x="${lblP.x}" y="${lblP.y}" text-anchor="${ta}" dominant-baseline="central"
+      fill="#fff" font-size="13" font-weight="600"
+      style="font-family:-apple-system,PingFang TC,sans-serif">${ing.name}</text>`;
+    body += `<text x="${lblP.x}" y="${lblP.y + 14}" text-anchor="${ta}" dominant-baseline="central"
+      fill="#8892a8" font-size="10">${s?.recipe_count || 0} 道</text>`;
+    body += `</g>`;
+  });
+  svg.innerHTML = body;
+}
+
+// =============================================================
+// VIZ 3: 2D Network
+// =============================================================
+let netSim = { nodes: [], sel: [], rafId: null, ticksDone: 0, hover: null };
+// network coords: viewBox 1400 x 900 → center (700, 450)
+const NET_CX = 700, NET_CY = 450;
+function renderNetwork() {
+  const sel = selectedRecipes();
+  const stats = ingredientStats(sel);
+  const used = state.ingredients.filter(i => (stats[i.name]?.recipe_count || 0) > 0);
+
+  // initialize positions in a wide ring matching viewBox aspect
+  const N = used.length;
+  netSim.nodes = used.map((ing, i) => {
+    const a = (i / N) * Math.PI * 2 - Math.PI/2;
+    return {
+      ing, name: ing.name, meta: stats[ing.name],
+      x: NET_CX + Math.cos(a) * 380,
+      y: NET_CY + Math.sin(a) * 280,
+      vx: 0, vy: 0,
+    };
+  });
+  netSim.sel = sel;
+  netSim.ticksDone = 0;
+
+  // pre-warm aggressively before first paint
+  for (let i = 0; i < 1500; i++) tickNetwork(sel);
+
+  // animate until settled
+  if (netSim.rafId) cancelAnimationFrame(netSim.rafId);
+  function loop() {
+    if (state.activeTab !== 'network') { netSim.rafId = null; return; }
+    let maxV = 0;
+    for (let i = 0; i < 4; i++) {
+      tickNetwork(netSim.sel);
+      netSim.nodes.forEach(n => { const sp = Math.hypot(n.vx, n.vy); if (sp > maxV) maxV = sp; });
+    }
+    netSim.ticksDone += 4;
+    drawNetwork(netSim.sel);
+    if (maxV > 0.4 && netSim.ticksDone < 2000) {
+      netSim.rafId = requestAnimationFrame(loop);
+    } else {
+      netSim.rafId = null;
+    }
+  }
+  netSim.rafId = requestAnimationFrame(loop);
+}
+
+function tickNetwork(sel) {
+  const nodes = netSim.nodes;
+  // build pair counts
+  const pairCount = {};
+  sel.forEach(r => {
+    for (let i = 0; i < r.ingredients.length; i++) {
+      for (let j = i+1; j < r.ingredients.length; j++) {
+        const k = [r.ingredients[i].name, r.ingredients[j].name].sort().join('|');
+        pairCount[k] = (pairCount[k] || 0) + 1;
+      }
+    }
+  });
+  // repulsion — much stronger so nodes don't crush together
+  for (let i = 0; i < nodes.length; i++) {
+    const a = nodes[i]; a.fx = 0; a.fy = 0;
+    for (let j = 0; j < nodes.length; j++) {
+      if (i === j) continue;
+      const b = nodes[j];
+      const dx = a.x-b.x, dy = a.y-b.y;
+      const r2 = dx*dx+dy*dy+1, r = Math.sqrt(r2);
+      const f = 30000/r2;
+      a.fx += (dx/r)*f; a.fy += (dy/r)*f;
+    }
+  }
+  // springs — longer target length so connected nodes don't pull too close
+  Object.entries(pairCount).forEach(([key, count]) => {
+    const [n1, n2] = key.split('|');
+    const a = nodes.find(n => n.name === n1), b = nodes.find(n => n.name === n2);
+    if (!a || !b) return;
+    const dx = b.x-a.x, dy = b.y-a.y;
+    const r = Math.sqrt(dx*dx+dy*dy)+0.01;
+    const targetLen = 220 - Math.min(60, count * 6);  // shared a lot → slightly tighter
+    const k = 0.012 * (1 + Math.log2(count+1) * 0.2);
+    const f = k * (r - targetLen);
+    a.fx += (dx/r)*f; a.fy += (dy/r)*f;
+    b.fx -= (dx/r)*f; b.fy -= (dy/r)*f;
+  });
+  // gravity to center — much weaker, just prevents drift
+  nodes.forEach(n => {
+    n.fx += (NET_CX-n.x)*0.0018;
+    n.fy += (NET_CY-n.y)*0.0018;
+  });
+  // integrate
+  nodes.forEach(n => {
+    n.vx = (n.vx + n.fx) * 0.80; n.vy = (n.vy + n.fy) * 0.80;
+    const sp = Math.hypot(n.vx, n.vy);
+    if (sp > 20) { n.vx *= 20/sp; n.vy *= 20/sp; }
+    n.x += n.vx; n.y += n.vy;
+    n.x = Math.max(80, Math.min(1320, n.x));
+    n.y = Math.max(80, Math.min(820, n.y));
+  });
+}
+
+function drawNetwork(sel) {
+  const svg = document.getElementById('net-svg');
+  let body = '';
+
+  // compute path ordering using seriation heuristic
+  const globalCount = {};
+  sel.forEach(r => r.ingredients.forEach(i => {
+    globalCount[i.name] = (globalCount[i.name] || 0) + 1;
+  }));
+  sel.forEach(r => {
+    r._pathOrder = [...r.ingredients].sort((a,b) => {
+      const ca = globalCount[a.name] || 1, cb = globalCount[b.name] || 1;
+      if (ca !== cb) return cb - ca;
+      const sa = state.ingredients.find(x=>x.name===a.name)?.base_score || 0;
+      const sb = state.ingredients.find(x=>x.name===b.name)?.base_score || 0;
+      return sb - sa;
+    });
+  });
+
+  const hoverIng = netSim.hover;
+  // recipe paths
+  sel.forEach(r => {
+    const pts = r._pathOrder.map(o => netSim.nodes.find(n => n.name === o.name)).filter(p => p);
+    if (pts.length < 2) return;
+    let d = `M ${pts[0].x} ${pts[0].y} `;
+    for (let i = 1; i < pts.length; i++) d += `L ${pts[i].x} ${pts[i].y} `;
+
+    // dim when hover ingredient that's not in this recipe; brighten otherwise
+    const inThisRecipe = hoverIng && r.ingredients.some(i => i.name === hoverIng);
+    const op = hoverIng ? (inThisRecipe ? 0.85 : 0.06) : 0.32;
+    const sw = hoverIng && inThisRecipe ? 3 : 1.6;
+    body += `<path d="${d}" fill="none" stroke="${TYPE_COLORS[r.type]}" stroke-width="${sw}"
+      stroke-opacity="${op}" stroke-linecap="round" stroke-linejoin="round"
+      pointer-events="stroke"
+      onmouseenter="hoverRecipe('${r.name}', event)" onmouseleave="hideTip()"/>`;
+
+    // tail label ONLY when this recipe is in scope (hover or hovering its ingredient)
+    if (hoverIng && inThisRecipe) {
+      const tail = pts[pts.length-1];
+      const prev = pts[pts.length-2];
+      const dx = tail.x - prev.x, dy = tail.y - prev.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const ex = tail.x + dx/len*36, ey = tail.y + dy/len*36;
+      body += `<text x="${ex}" y="${ey}" font-size="11" fill="${TYPE_COLORS[r.type]}"
+        text-anchor="middle" font-weight="700"
+        style="font-family:-apple-system,PingFang TC,sans-serif;pointer-events:none">${r.name}</text>`;
+      body += `<text x="${ex}" y="${ey + 13}" font-size="9" fill="${TYPE_COLORS[r.type]}" opacity="0.7"
+        text-anchor="middle"
+        style="font-family:-apple-system,PingFang TC,sans-serif;pointer-events:none">+${Math.round(r.tier_bonus*100)}%</text>`;
+    }
+  });
+
+  // nodes (drawn after edges so on top)
+  netSim.nodes.forEach(n => {
+    const ing = n.ing;
+    const isHover = hoverIng === n.name;
+    const isConnected = hoverIng && hoverIng !== n.name && sel.some(r =>
+      r.ingredients.some(i => i.name === hoverIng) && r.ingredients.some(i => i.name === n.name));
+    const baseR = 30;
+    const r = baseR + Math.min(15, (n.meta?.recipe_count || 0) * 0.8);
+    const op = hoverIng ? (isHover || isConnected ? 1 : 0.25) : 1;
+    body += `<g opacity="${op}" style="cursor:pointer"
+      onmouseenter="netHoverNode('${n.name}', event)" onmouseleave="netUnhoverNode()">`;
+    if (isHover) {
+      body += `<circle cx="${n.x}" cy="${n.y}" r="${r+8}" fill="#fff" opacity="0.25"/>`;
+    }
+    body += `<circle cx="${n.x}" cy="${n.y}" r="${r}" fill="#1c2334" stroke="${isHover ? '#FFD700' : '#fff'}" stroke-width="${isHover ? 3 : 1.5}"/>`;
+    body += svgImg(ing.image_url || ing.image, n.x, n.y, r*1.7, ing.emoji, ing.name);
+    // label below with pill background
+    const labelY = n.y + r + 8;
+    body += `<rect x="${n.x - 38}" y="${labelY}" width="76" height="18" rx="9" fill="#0b0f17" fill-opacity="0.85"/>`;
+    body += `<text x="${n.x}" y="${labelY + 12}" font-size="12" fill="#fff" text-anchor="middle"
+      font-weight="500" style="font-family:-apple-system,PingFang TC,sans-serif;pointer-events:none">${ing.name}</text>`;
+    body += `</g>`;
+  });
+
+  svg.innerHTML = body;
+}
+
+window.netHoverNode = (name, e) => {
+  netSim.hover = name;
+  drawNetwork(netSim.sel);
+  hoverIng(name, e);
+};
+window.netUnhoverNode = () => {
+  netSim.hover = null;
+  drawNetwork(netSim.sel);
+  unhoverIng();
+};
+
+// =============================================================
+// VIZ 4: Recipe Cards
+// =============================================================
+function renderCardsToolbar() {
+  document.getElementById('cards-toolbar').innerHTML = `
+    <span style="color:var(--muted);font-size:11px">排序：</span>
+    <select id="cards-sort">
+      <option value="score" ${state.cardsSort==='score'?'selected':''}>總分高→低</option>
+      <option value="tier" ${state.cardsSort==='tier'?'selected':''}>階級高→低</option>
+      <option value="type" ${state.cardsSort==='type'?'selected':''}>按系列分組</option>
+      <option value="name" ${state.cardsSort==='name'?'selected':''}>名稱排序</option>
+    </select>`;
+  document.getElementById('cards-sort').onchange = e => {
+    state.cardsSort = e.target.value;
+    renderCards();
+  };
+}
+function renderCards() {
+  renderCardsToolbar();
+  const sel = selectedRecipes();
+  sel.sort((a,b) => {
+    if (state.cardsSort === 'score') return b.score_final - a.score_final;
+    if (state.cardsSort === 'tier') return b.tier_bonus - a.tier_bonus || b.score_final - a.score_final;
+    if (state.cardsSort === 'type') return a.type === b.type ? b.score_final - a.score_final : a.type.localeCompare(b.type);
+    return a.name.localeCompare(b.name);
+  });
+  const grid = document.getElementById('cards-grid');
+  grid.innerHTML = sel.map(r => {
+    const ingsHtml = r.ingredients.map(i => {
+      const ing = state.ingredients.find(x => x.name === i.name);
+      return `<span class="card-ing">${imgHTML(ing, 18)}
+        <span>${i.name}</span><span class="qty">×${i.qty}</span></span>`;
+    }).join('');
+    return `<div class="card" onmouseenter="hoverRecipe('${r.name}', event)" onmouseleave="hideTip()">
+      <div class="card-header">
+        ${r.image_url ?
+          `<img class="card-img" src="${r.image_url}"
+             onerror="this.style.display='none'">` : ''}
+        <div class="card-title">
+          <div class="card-name">${r.name}</div>
+          <div class="card-meta">
+            <span class="card-type-pill" style="background:${TYPE_COLORS[r.type]}33;color:${TYPE_COLORS[r.type]}">${TYPE_SHORT[r.type]}</span>
+            +${Math.round(r.tier_bonus*100)}% · ${r.score_final.toLocaleString()}
+          </div>
+        </div>
+      </div>
+      <div class="card-ings">${ingsHtml}</div>
+    </div>`;
+  }).join('');
+}
+
+// =============================================================
+// VIZ 5: Focal with concentric tier rings
+// =============================================================
+function renderFocalToolbar() {
+  document.getElementById('focal-toolbar').innerHTML = `
+    <label>聚焦食材：</label>
+    <select id="focal-select" class="search-input" style="width:auto">
+      ${state.ingredients.map(i => `<option value="${i.name}" ${i.name===state.focalIng?'selected':''}>${i.emoji} ${i.name}</option>`).join('')}
+    </select>
+    <span style="color:var(--muted);font-size:11px;margin-left:auto">內圈 = 低階　·　外圈 = 高階　·　角度 = 系列</span>`;
+  document.getElementById('focal-select').onchange = e => {
+    state.focalIng = e.target.value;
+    document.getElementById('focal-ing').value = e.target.value;
+    renderFocal();
+  };
+}
+// Fixed tier → radius schedule. Layout consistent regardless of which tiers are selected.
+// Inner = lowest tier (lower-quality recipes), outer = highest tier (best recipes).
+const TIER_RADIUS = {
+  0.16: 180, 0.19: 200, 0.20: 215, 0.21: 230,
+  0.25: 260, 0.35: 320, 0.48: 385, 0.61: 450, 0.78: 510,
+};
+const SATELLITE_RADIUS = 580;
+// Type sector angles (radians, full circle): each type occupies ~120°
+const TYPE_SECTOR = {
+  '咖哩、濃湯': Math.PI,        // left
+  '沙拉': -Math.PI / 2.5,       // top-right
+  '點心、飲料': Math.PI / 2.5,  // bottom-right
+};
+
+function renderFocal() {
+  renderFocalToolbar();
+  const svg = document.getElementById('focal-svg');
+  const cx = 600, cy = 600;
+  const ingName = state.focalIng;
+  const ing = state.ingredients.find(i => i.name === ingName);
+  if (!ing) { svg.innerHTML = ''; return; }
+
+  // recipes containing this ingredient (within current selection)
+  const recipes = selectedRecipes().filter(r => r.ingredients.some(i => i.name === ingName));
+
+  let body = '';
+
+  // ---- background: concentric tier rings (always drawn, fixed schedule) ----
+  Object.entries(TIER_RADIUS).forEach(([t, r]) => {
+    const tn = parseFloat(t);
+    const used = recipes.some(rec => rec.tier_bonus === tn);
+    const opacity = used ? 0.7 : 0.18;
+    body += `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none"
+      stroke="#3a4670" stroke-width="1" stroke-dasharray="3 5" opacity="${opacity}"/>`;
+    // label at right of ring
+    body += `<text x="${cx + r + 4}" y="${cy + 4}" font-size="10"
+      fill="${used ? '#9FC5E8' : '#3a4670'}"
+      style="font-family:-apple-system,PingFang TC,sans-serif;pointer-events:none">+${Math.round(tn*100)}%</text>`;
+  });
+
+  // ---- type sector guides (light radial lines) ----
+  Object.entries(TYPE_SECTOR).forEach(([type, angle]) => {
+    const x2 = cx + Math.cos(angle) * SATELLITE_RADIUS;
+    const y2 = cy + Math.sin(angle) * SATELLITE_RADIUS;
+    body += `<line x1="${cx}" y1="${cy}" x2="${x2}" y2="${y2}"
+      stroke="${TYPE_COLORS[type]}" stroke-width="0.5" stroke-opacity="0.2" stroke-dasharray="2 4"/>`;
+    // sector label at outer edge
+    const lx = cx + Math.cos(angle) * (SATELLITE_RADIUS + 30);
+    const ly = cy + Math.sin(angle) * (SATELLITE_RADIUS + 30);
+    body += `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="central"
+      font-size="11" fill="${TYPE_COLORS[type]}" opacity="0.7"
+      style="font-family:-apple-system,PingFang TC,sans-serif;pointer-events:none">${TYPE_SHORT[type]}</text>`;
+  });
+
+  if (recipes.length === 0) {
+    body += `<text x="${cx}" y="${cy}" text-anchor="middle" font-size="14" fill="#8892a8">
+      此食材在目前篩選下沒有料理</text>`;
+    svg.innerHTML = body;
+    return;
+  }
+
+  // ---- compute recipe positions ----
+  // Group recipes by (type, tier). Distribute angles WITHIN a type sector.
+  // Within same type+tier, fan out by index.
+  const typeGroups = {};
+  recipes.forEach(r => { (typeGroups[r.type] = typeGroups[r.type] || []).push(r); });
+
+  const recipePos = {};
+  Object.entries(typeGroups).forEach(([type, list]) => {
+    const baseAngle = TYPE_SECTOR[type] || 0;
+    const sectorWidth = (2 * Math.PI / 3) * 0.75;  // 90° usable width per sector
+    list.forEach((r, i) => {
+      // angle within sector
+      const t = list.length === 1 ? 0 : (i / (list.length-1)) - 0.5;
+      const a = baseAngle + t * sectorWidth;
+      const rr = TIER_RADIUS[r.tier_bonus] || 250;
+      recipePos[r.name] = { x: cx + Math.cos(a)*rr, y: cy + Math.sin(a)*rr, angle: a, r: rr };
+    });
+  });
+
+  // ---- compute satellite ingredient positions on outer ring ----
+  const otherIngSet = new Set();
+  recipes.forEach(r => r.ingredients.forEach(i => { if (i.name !== ingName) otherIngSet.add(i.name); }));
+
+  // For each satellite ingredient, compute weighted-mean angle of its owning recipes.
+  // Use vector mean (handles wraparound correctly).
+  const satOrder = [];
+  otherIngSet.forEach(n => {
+    const owners = recipes.filter(r => r.ingredients.some(i => i.name === n));
+    let vx = 0, vy = 0;
+    owners.forEach(r => {
+      const a = recipePos[r.name].angle;
+      vx += Math.cos(a); vy += Math.sin(a);
+    });
+    const meanAngle = Math.atan2(vy, vx);
+    satOrder.push({ name: n, angle: meanAngle, owners: owners.length });
+  });
+
+  // Sort by angle, then resolve overlaps by spacing them along arc (min angular gap).
+  satOrder.sort((a, b) => a.angle - b.angle);
+  const minGap = (2 * Math.PI) / Math.max(otherIngSet.size, 12);
+  for (let i = 1; i < satOrder.length; i++) {
+    if (satOrder[i].angle - satOrder[i-1].angle < minGap) {
+      satOrder[i].angle = satOrder[i-1].angle + minGap;
+    }
+  }
+
+  const satPos = {};
+  satOrder.forEach(s => {
+    satPos[s.name] = {
+      x: cx + Math.cos(s.angle) * SATELLITE_RADIUS,
+      y: cy + Math.sin(s.angle) * SATELLITE_RADIUS,
+      angle: s.angle, owners: s.owners,
+    };
+  });
+
+  // ---- edges: focal → recipe (thin), recipe → satellite (colored) ----
+  recipes.forEach(r => {
+    const p = recipePos[r.name];
+    body += `<line x1="${cx}" y1="${cy}" x2="${p.x}" y2="${p.y}"
+      stroke="${TYPE_COLORS[r.type]}" stroke-width="1.2" stroke-opacity="0.35"/>`;
+    r.ingredients.forEach(i => {
+      if (i.name === ingName) return;
+      const sp = satPos[i.name];
+      if (!sp) return;
+      body += `<line x1="${p.x}" y1="${p.y}" x2="${sp.x}" y2="${sp.y}"
+        stroke="${TYPE_COLORS[r.type]}" stroke-width="1.5" stroke-opacity="0.55"
+        data-recipe="${r.name}"/>`;
+    });
+  });
+
+  // ---- satellite ingredient nodes (on outer ring) ----
+  satOrder.forEach(s => {
+    const name = s.name;
+    const p = satPos[name];
+    const otherIng = state.ingredients.find(i => i.name === name);
+    if (!otherIng) return;
+    const r = 24;
+    body += `<g style="cursor:pointer"
+      onmouseenter="hoverIng('${name}', event)" onmouseleave="unhoverIng()"
+      onclick="state.focalIng='${name}'; document.getElementById('focal-select').value='${name}'; document.getElementById('focal-ing').value='${name}'; renderFocal();">`;
+    // outer ring color based on share count
+    const ringColor = s.owners >= 3 ? '#FFD700' : s.owners >= 2 ? '#FFB347' : '#7B8AAB';
+    body += `<circle cx="${p.x}" cy="${p.y}" r="${r+3}" fill="${ringColor}" opacity="0.4"/>`;
+    body += `<circle cx="${p.x}" cy="${p.y}" r="${r}" fill="#1c2334" stroke="#fff" stroke-width="1.5"/>`;
+    body += svgImg(otherIng.image_url || otherIng.image, p.x, p.y, r*1.7, otherIng.emoji, name);
+    // label outside the satellite ring
+    const lblR = SATELLITE_RADIUS + 50;
+    const lx = cx + Math.cos(p.angle) * lblR;
+    const ly = cy + Math.sin(p.angle) * lblR;
+    body += `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="central"
+      font-size="11" fill="#fff" font-weight="600"
+      style="font-family:-apple-system,PingFang TC,sans-serif;pointer-events:none">${name}</text>`;
+    if (s.owners >= 2) {
+      body += `<text x="${lx}" y="${ly + 13}" text-anchor="middle" dominant-baseline="central"
+        font-size="9" fill="${ringColor}"
+        style="pointer-events:none">共用×${s.owners}</text>`;
+    }
+    body += `</g>`;
+  });
+
+  // ---- recipe diamonds with labels ----
+  recipes.forEach(r => {
+    const p = recipePos[r.name];
+    const rr = 11;
+    body += `<g style="cursor:pointer"
+      onmouseenter="hoverRecipe('${r.name}', event)" onmouseleave="hideTip()">`;
+    body += `<polygon points="${p.x},${p.y-rr} ${p.x+rr},${p.y} ${p.x},${p.y+rr} ${p.x-rr},${p.y}"
+      fill="${TYPE_COLORS[r.type]}" stroke="#0b0f17" stroke-width="1.5"/>`;
+    // label perpendicular to radial direction (rotate slightly to avoid horizontal collision)
+    const dx = p.x - cx, dy = p.y - cy;
+    const len = Math.hypot(dx, dy) || 1;
+    const off = 22;
+    const lx = p.x + dx/len*off, ly = p.y + dy/len*off;
+    body += `<text x="${lx}" y="${ly}" text-anchor="middle" dominant-baseline="central"
+      font-size="10" fill="#fff" font-weight="600"
+      style="font-family:-apple-system,PingFang TC,sans-serif;pointer-events:none">${r.name}</text>`;
+    body += `<text x="${lx}" y="${ly + 12}" text-anchor="middle" dominant-baseline="central"
+      font-size="9" fill="${TYPE_COLORS[r.type]}"
+      style="pointer-events:none">+${Math.round(r.tier_bonus*100)}% · ${r.score_final.toLocaleString()}</text>`;
+    body += `</g>`;
+  });
+
+  // ---- focal ingredient at center ----
+  body += `<g>`;
+  body += `<circle cx="${cx}" cy="${cy}" r="78" fill="#FFD700" opacity="0.18"/>`;
+  body += `<circle cx="${cx}" cy="${cy}" r="62" fill="#FFD700" opacity="0.28"/>`;
+  body += `<circle cx="${cx}" cy="${cy}" r="52" fill="#1c2334" stroke="#FFD700" stroke-width="4"/>`;
+  body += svgImg(ing.image_url || ing.image, cx, cy, 90, ing.emoji, ing.name);
+  body += `<text x="${cx}" y="${cy + 80}" font-size="18" fill="#fff" text-anchor="middle" font-weight="700"
+    style="font-family:-apple-system,PingFang TC,sans-serif">${ing.name}</text>`;
+  body += `<text x="${cx}" y="${cy + 102}" font-size="11" fill="#FFD700" text-anchor="middle"
+    style="font-family:-apple-system,PingFang TC,sans-serif">★ 聚焦食材 · 含此食材的料理 ${recipes.length} 道</text>`;
+  body += `</g>`;
+
+  svg.innerHTML = body;
+}
+
+// =============================================================
+// Boot
+// =============================================================
+document.getElementById('search').addEventListener('input', e => {
+  state.searchQuery = e.target.value;
+  reRenderActive();
+});
+
+renderTierFilter();
+renderFocalSelector();
+reRenderActive();
+renderImgStatus();
+</script>
+</body>
+</html>
