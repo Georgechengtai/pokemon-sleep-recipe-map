@@ -502,6 +502,36 @@ body {
 
 /* ── Tab 1: Recipe Browser ───────────────────────────────────── */
 #tab-browser { flex-direction: column; }
+#controls-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  color: var(--text-muted);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 16px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  flex-shrink: 0;
+  user-select: none;
+}
+#controls-toggle:hover { color: var(--text); }
+#controls-toggle .collapse-icon {
+  display: inline-block;
+  transition: transform 0.18s;
+  font-size: 10px;
+}
+#tab-browser.controls-collapsed #controls-toggle .collapse-icon {
+  transform: rotate(-90deg);
+}
+#tab-browser.controls-collapsed #browser-controls-wrap {
+  display: none;
+}
+
 #browser-controls-wrap {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
@@ -510,6 +540,13 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
+}
+
+/* hide-card-meta — hides +N% corner badge and 🔥score pill,
+   keeps state badges (✓ cookable, 差 N near-cookable) */
+body.hide-card-meta .recipe-card .tier-badge,
+body.hide-card-meta .recipe-card .recipe-card-meta {
+  display: none;
 }
 .ctrl-section {
   padding: 8px 0;
@@ -751,9 +788,9 @@ body {
 }
 
 .recipe-card-ings {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 6px;
   padding-top: 6px;
   border-top: 1px dashed var(--border);
 }
@@ -766,8 +803,15 @@ body {
   padding: 1px 5px 1px 3px;
   border-radius: 8px;
   background: var(--surface2);
+  min-width: 0;
+  overflow: hidden;
 }
-.recipe-ing img { width: 14px; height: 14px; }
+.recipe-ing img { width: 14px; height: 14px; flex-shrink: 0; }
+.recipe-ing-empty {
+  /* Reserves grid slot so cards stay uniform height regardless of ing count */
+  height: 18px;
+  visibility: hidden;
+}
 .recipe-ing.owned { color: var(--owned); background: rgba(102,187,106,0.13); }
 .recipe-ing.missing { color: var(--accent-bright); font-weight: 700; background: rgba(121,134,203,0.13); }
 .recipe-ing.excluded { color: var(--dessert); text-decoration: line-through; background: rgba(240,98,146,0.10); }
@@ -872,6 +916,9 @@ body {
 
 <!-- Tab 1: Recipe Browser (manual exploration) -->
 <div class="tab-content active" id="tab-browser">
+  <button id="controls-toggle" type="button">
+    <span class="collapse-icon">▼</span> 設定面板
+  </button>
   <div id="browser-controls-wrap">
 
     <section class="ctrl-section">
@@ -880,10 +927,10 @@ body {
         <span class="ctrl-h-note">只顯示此階級或以上的料理</span>
       </div>
       <div class="tier-filter tier-filter-group" data-source="tab1">
-        <button class="tier-btn" data-tier="0">全部</button>
+        <button class="tier-btn active" data-tier="0">全部</button>
         <button class="tier-btn" data-tier="0.25">+25%↑</button>
         <button class="tier-btn" data-tier="0.35">+35%↑</button>
-        <button class="tier-btn active" data-tier="0.48">+48%↑</button>
+        <button class="tier-btn" data-tier="0.48">+48%↑</button>
         <button class="tier-btn" data-tier="0.61">+61%↑</button>
         <button class="tier-btn" data-tier="0.78">+78%↑</button>
       </div>
@@ -911,7 +958,10 @@ body {
       </div>
       <div class="ctrl-options">
         <label class="browser-toggle">
-          <input type="checkbox" id="hide-superseded-toggle"> 隱藏被超越的料理（同系列分數較低者）
+          <input type="checkbox" id="hide-superseded-toggle" checked> 隱藏被超越的料理（同系列分數較低者）
+        </label>
+        <label class="browser-toggle">
+          <input type="checkbox" id="hide-meta-toggle" checked> 隱藏卡片的 % 與能量數字
         </label>
         <button id="reset-btn">↻ 重設全部</button>
       </div>
@@ -937,10 +987,10 @@ body {
   <div id="explore-controls">
     <span style="font-size:11px;color:var(--text-muted);">階級篩選</span>
     <div class="tier-filter tier-filter-group" data-source="tab3">
-      <button class="tier-btn" data-tier="0">全部</button>
+      <button class="tier-btn active" data-tier="0">全部</button>
       <button class="tier-btn" data-tier="0.25">+25%↑</button>
       <button class="tier-btn" data-tier="0.35">+35%↑</button>
-      <button class="tier-btn active" data-tier="0.48">+48%↑</button>
+      <button class="tier-btn" data-tier="0.48">+48%↑</button>
       <button class="tier-btn" data-tier="0.61">+61%↑</button>
       <button class="tier-btn" data-tier="0.78">+78%↑</button>
     </div>
@@ -1070,14 +1120,15 @@ body {
 /* ── State ─────────────────────────────────────────────────────── */
 const S = {
   data: null,
-  minTier: 0.48,             // active tier filter
-  owned: new Set(),          // owned ingredient indices
-  ownedOrder: [],            // ordered list of owned indices (for Tab 4 export)
-  excluded: new Set(),       // excluded ingredient indices (Tab 1 only for now)
+  minTier: 0,                // tier filter; default "全部"
+  owned: new Set(),
+  ownedOrder: [],
+  excluded: new Set(),
   highlight: null,
   search: '',
-  tab: 'browser',            // current tab
-  hideSuperseded: false,     // Tab 1 toggle
+  tab: 'browser',
+  hideSuperseded: true,      // default ON — hide lower-score same-type recipes
+  hideCardMeta: true,        // default ON — hide tier% badge + score on cards
 };
 
 const TYPE_META = {
@@ -1604,12 +1655,12 @@ function initCK() {
 /* ── URL hash state ──────────────────────────────────────────────── */
 function saveHash() {
   const params = new URLSearchParams();
-  // Preserve click order in 'owned'
   if (S.ownedOrder.length > 0) params.set('owned', S.ownedOrder.join(','));
   if (S.excluded.size > 0) params.set('excluded', [...S.excluded].sort().join(','));
-  if (S.minTier !== 0.48) params.set('tier', S.minTier);
+  if (S.minTier !== 0) params.set('tier', S.minTier);
   if (S.tab !== 'browser') params.set('tab', S.tab);
-  if (S.hideSuperseded) params.set('hide', '1');
+  if (S.hideSuperseded !== true) params.set('superseded', S.hideSuperseded ? '1' : '0');
+  if (S.hideCardMeta !== true) params.set('meta', S.hideCardMeta ? '1' : '0');
   const hash = params.toString();
   history.replaceState(null, '', hash ? '#' + hash : window.location.pathname);
 }
@@ -1619,15 +1670,15 @@ function loadHash() {
   if (!hash) return;
   const params = new URLSearchParams(hash);
   if (params.get('owned')) {
-    const order = params.get('owned').split(',').map(Number);
-    order.forEach(i => { S.owned.add(i); S.ownedOrder.push(i); });
+    params.get('owned').split(',').map(Number).forEach(i => { S.owned.add(i); S.ownedOrder.push(i); });
   }
   if (params.get('excluded')) {
     params.get('excluded').split(',').map(Number).forEach(i => S.excluded.add(i));
   }
-  if (params.get('tier')) S.minTier = parseFloat(params.get('tier'));
-  if (params.get('tab')) S.tab = params.get('tab');
-  if (params.get('hide')) S.hideSuperseded = true;
+  if (params.get('tier'))       S.minTier = parseFloat(params.get('tier'));
+  if (params.get('tab'))        S.tab = params.get('tab');
+  if (params.get('superseded')) S.hideSuperseded = params.get('superseded') === '1';
+  if (params.get('meta'))       S.hideCardMeta = params.get('meta') === '1';
 }
 
 /* ── Tab routing ─────────────────────────────────────────────────── */
@@ -1712,10 +1763,10 @@ function recipeStatus(recipe) {
     if (S.owned.has(idx)) owned++; else missing.push(idx);
   }
   let state;
-  if (hasEx)                              state = 'blocked';
-  else if (missing.length === 0)          state = 'cookable';
-  else if (missing.length <= 2)           state = 'near';
-  else                                    state = 'far';
+  if (hasEx)                                       state = 'blocked';
+  else if (missing.length === 0)                   state = 'cookable';
+  else if (missing.length <= 2 && owned > 0)       state = 'near';
+  else                                             state = 'far';
   return { state, missingCount: missing.length, missingIngs: missing, hasExcluded: hasEx };
 }
 
@@ -1801,7 +1852,11 @@ function buildRecipeCard(r) {
   card.className = `recipe-card ${typeClass(r.type_en)} ${stateCls}`;
   card.dataset.recipe = r.name_en;
 
-  const ingsHTML = r.ingredients.map(ing => {
+  // Pad to 4 slots for uniform 2×2 grid regardless of ingredient count
+  const slots = [...r.ingredients];
+  while (slots.length < 4) slots.push(null);
+  const ingsHTML = slots.map(ing => {
+    if (!ing) return '<span class="recipe-ing-empty"></span>';
     const idx = ingByName[ing.name];
     let cls = 'recipe-ing';
     if (S.owned.has(idx))             cls += ' owned';
@@ -1839,15 +1894,34 @@ function buildRecipeCard(r) {
 }
 
 /* ── Tab 1 controls ──────────────────────────────────────────────── */
+function applyHideMeta() {
+  document.body.classList.toggle('hide-card-meta', S.hideCardMeta);
+}
+
 function initBrowserControls() {
-  document.getElementById('hide-superseded-toggle').addEventListener('change', e => {
+  const hsToggle = document.getElementById('hide-superseded-toggle');
+  hsToggle.addEventListener('change', e => {
     S.hideSuperseded = e.target.checked;
     buildBrowser();
     saveHash();
   });
+  hsToggle.checked = S.hideSuperseded;
+
+  const hmToggle = document.getElementById('hide-meta-toggle');
+  hmToggle.addEventListener('change', e => {
+    S.hideCardMeta = e.target.checked;
+    applyHideMeta();
+    saveHash();
+  });
+  hmToggle.checked = S.hideCardMeta;
+  applyHideMeta();
+
   document.getElementById('reset-btn').addEventListener('click', resetIngState);
-  // Sync from loaded hash
-  document.getElementById('hide-superseded-toggle').checked = S.hideSuperseded;
+
+  // Collapsible settings panel (open by default)
+  document.getElementById('controls-toggle').addEventListener('click', () => {
+    document.getElementById('tab-browser').classList.toggle('controls-collapsed');
+  });
 }
 
 /* ── Tier filter ─────────────────────────────────────────────────── */
