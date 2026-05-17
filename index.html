@@ -447,15 +447,289 @@ body {
 .tt-salad { color: var(--salad); }
 .tt-dessert { color: var(--dessert); }
 
+/* ── Tab bar ──────────────────────────────────────────────────── */
+#tabbar {
+  display: flex;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 16px;
+  flex-shrink: 0;
+  gap: 2px;
+}
+.tab-btn {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 0.02em;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active {
+  color: var(--accent-bright);
+  border-bottom-color: var(--accent-bright);
+}
+.tab-btn .tab-hint { font-weight: 400; font-size: 10px; opacity: 0.6; margin-left: 4px; }
+
+.tab-content { display: none; flex: 1; overflow: hidden; }
+.tab-content.active { display: flex; }
+
+/* ── Tab 1: Recipe Browser ───────────────────────────────────── */
+#tab-browser { flex-direction: column; }
+#browser-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.browser-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+  cursor: pointer;
+  user-select: none;
+}
+.browser-toggle input { cursor: pointer; }
+#reset-btn {
+  background: var(--surface2);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 11px;
+}
+#reset-btn:hover { color: var(--text); border-color: var(--accent); }
+
+#ing-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.ing-toolchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px 4px 7px;
+  border: 1.5px solid var(--border);
+  border-radius: 14px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.12s;
+  color: var(--text-muted);
+  background: var(--bg);
+  position: relative;
+  user-select: none;
+}
+.ing-toolchip:hover { transform: translateY(-1px); }
+.ing-toolchip img { flex-shrink: 0; }
+.ing-toolchip.owned {
+  border-color: var(--owned);
+  color: var(--owned);
+  background: rgba(102,187,106,0.10);
+}
+.ing-toolchip.excluded {
+  border-color: var(--dessert);
+  color: var(--dessert);
+  background: rgba(240,98,146,0.08);
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+.ing-toolchip.excluded img { filter: grayscale(1) opacity(0.5); }
+.ing-toolchip .order-badge {
+  position: absolute;
+  top: -6px; right: -6px;
+  background: var(--owned);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 8px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ing-toolchip.excluded .order-badge { display: none; }
+.ing-toolchip .exclude-x {
+  position: absolute;
+  top: -5px; right: -5px;
+  background: var(--dessert);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 50%;
+  width: 14px; height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ing-toolchip:not(.excluded) .exclude-x { display: none; }
+
+#recipe-sections {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px 60px;
+}
+.recipe-section { margin-bottom: 24px; }
+.recipe-section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 4px 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.recipe-section-header .section-count { color: var(--text-muted); font-weight: 400; font-size: 11px; }
+.recipe-section-header.curry   { color: var(--curry); }
+.recipe-section-header.salad   { color: var(--salad); }
+.recipe-section-header.dessert { color: var(--dessert); }
+.recipe-section-header .section-emoji { font-size: 16px; }
+
+.recipe-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.recipe-card {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  position: relative;
+  font-size: 11px;
+  cursor: default;
+  transition: all 0.15s;
+  opacity: 0.55;
+}
+.recipe-card .tier-stripe {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 5px 5px 0 0;
+  opacity: 0.65;
+}
+.recipe-card.curry   .tier-stripe { background: var(--curry); }
+.recipe-card.salad   .tier-stripe { background: var(--salad); }
+.recipe-card.dessert .tier-stripe { background: var(--dessert); }
+.recipe-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: var(--text);
+  font-size: 12px;
+}
+.recipe-card-title img { flex-shrink: 0; }
+.recipe-card-title .recipe-name { flex: 1; line-height: 1.2; }
+.recipe-card-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  color: var(--text-muted);
+}
+.recipe-card-meta .score { color: var(--tier-high); font-weight: 600; }
+.recipe-card-ings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 6px;
+}
+.recipe-ing {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.recipe-ing img { width: 12px; height: 12px; }
+.recipe-ing.owned { color: var(--owned); }
+.recipe-ing.missing { color: var(--accent-bright); font-weight: 600; }
+.recipe-ing.excluded { color: var(--dessert); text-decoration: line-through; }
+
+.recipe-card.cookable {
+  opacity: 1;
+  border-color: var(--owned);
+  background: linear-gradient(180deg, rgba(102,187,106,0.08), var(--surface));
+}
+.recipe-card.cookable::before {
+  content: '✓';
+  position: absolute;
+  top: 6px; right: 8px;
+  color: var(--owned);
+  font-weight: 700;
+  font-size: 12px;
+}
+.recipe-card.near-cookable {
+  opacity: 0.92;
+  border-color: var(--accent);
+  background: linear-gradient(180deg, rgba(121,134,203,0.06), var(--surface));
+}
+.recipe-card.near-cookable .miss-badge {
+  position: absolute;
+  top: 6px; right: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 8px;
+}
+.recipe-card.blocked {
+  opacity: 0.35;
+  border-color: var(--dessert);
+}
+.recipe-card.blocked .recipe-card-title .recipe-name { text-decoration: line-through; color: var(--text-muted); }
+
+/* ── Tab 3: keeps existing #main structure ──────────────────── */
+#tab-explore { flex-direction: row; }
+
+/* ── Coming-soon placeholders for Tabs 2 / 4 ────────────────── */
+.tab-placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  text-align: center;
+  line-height: 1.7;
+  padding: 40px;
+}
+.tab-placeholder b { color: var(--accent-bright); display: block; margin-bottom: 8px; font-size: 16px; }
+
 /* ── Mobile responsive ────────────────────────────────────────── */
 @media (max-width: 768px) {
   html, body { overflow: auto; height: auto; }
   #main { flex-direction: column; overflow: visible; }
   .panel { border-right: none; border-bottom: 1px solid var(--border); }
   #right-col { max-width: 100%; min-width: 0; }
-  #map-panel { width: 100%; }
+  #map-panel { width: 100%; max-width: 100%; }
   #map-scroll { overflow-x: auto; }
   #ck-panel { width: calc(100vw - 32px); right: 8px; }
+  #tabbar { overflow-x: auto; padding: 0 8px; }
+  .tab-btn { padding: 8px 10px; font-size: 12px; white-space: nowrap; }
+  .recipe-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 }
 </style>
 </head>
@@ -476,8 +750,41 @@ body {
   <span id="owned-count">已有 0 / 19 食材</span>
 </div>
 
-<!-- Main -->
-<div id="main">
+<!-- Tab bar -->
+<div id="tabbar">
+  <button class="tab-btn active" data-tab="browser">📖 料理瀏覽<span class="tab-hint">手動</span></button>
+  <button class="tab-btn" data-tab="stats">📊 統計</button>
+  <button class="tab-btn" data-tab="explore">🧭 探索<span class="tab-hint">演算法</span></button>
+  <button class="tab-btn" data-tab="animation">🎞 動畫</button>
+</div>
+
+<!-- Tab 1: Recipe Browser (manual exploration) -->
+<div class="tab-content active" id="tab-browser">
+  <div id="browser-controls">
+    <label class="browser-toggle">
+      <input type="checkbox" id="hide-superseded-toggle"> 隱藏被超越的料理（同系列）
+    </label>
+    <span style="color:var(--text-muted); font-size:11px;">點食材：1 次 = 已有・2 次 = 排除・3 次 = 取消</span>
+    <button id="reset-btn">↻ 重設</button>
+  </div>
+  <div id="ing-toolbar"></div>
+  <div id="recipe-sections"></div>
+</div>
+
+<!-- Tab 2: Stats placeholder -->
+<div class="tab-content" id="tab-stats">
+  <div class="tab-placeholder">
+    <div>
+      <b>📊 食材出現次數統計</b>
+      下一版：每食材的總出現次數、按系列拆解、Top-3 需求最高的料理。<br>
+      矩陣熱力圖也會搬來這裡，並支援橫向 scroll。
+    </div>
+  </div>
+</div>
+
+<!-- Tab 3: Explore (v1 panels — Map / Recommender / Planner with shared state) -->
+<div class="tab-content" id="tab-explore">
+  <div id="main">
 
   <!-- Map Panel -->
   <div class="panel" id="map-panel">
@@ -546,6 +853,18 @@ body {
 
   </div>
 </div>
+</div><!-- /#tab-explore -->
+
+<!-- Tab 4: Animation placeholder -->
+<div class="tab-content" id="tab-animation">
+  <div class="tab-placeholder">
+    <div>
+      <b>🎞 路線動畫 / 比較</b>
+      下一版：把瀏覽或路徑規劃裡的食材順序 export 出來，<br>
+      動畫播放每加一個食材時可煮料理的擴張過程；雙路線並排比較。
+    </div>
+  </div>
+</div>
 
 <!-- Tooltip -->
 <div id="tooltip">
@@ -590,10 +909,20 @@ body {
 /* ── State ─────────────────────────────────────────────────────── */
 const S = {
   data: null,
-  minTier: 0.48,        // active tier filter
-  owned: new Set(),     // owned ingredient indices
-  highlight: null,      // {type:'ingredient'|'recipe', idx:number}
+  minTier: 0.48,             // active tier filter
+  owned: new Set(),          // owned ingredient indices
+  ownedOrder: [],            // ordered list of owned indices (for Tab 4 export)
+  excluded: new Set(),       // excluded ingredient indices (Tab 1 only for now)
+  highlight: null,
   search: '',
+  tab: 'browser',            // current tab
+  hideSuperseded: false,     // Tab 1 toggle
+};
+
+const TYPE_META = {
+  curry:   { label: '🍛 咖哩、濃湯', emoji: '🍛' },
+  salad:   { label: '🥗 沙拉',       emoji: '🥗' },
+  dessert: { label: '🧁 點心、飲料', emoji: '🧁' },
 };
 
 /* ── Load data ─────────────────────────────────────────────────── */
@@ -838,12 +1167,53 @@ function clearHighlight() {
 }
 
 /* ── Owned / Picker ─────────────────────────────────────────────── */
+// Cycle: neutral → owned → excluded → neutral
+function cycleIngState(i) {
+  if (S.owned.has(i)) {
+    // owned → excluded
+    S.owned.delete(i);
+    S.ownedOrder = S.ownedOrder.filter(x => x !== i);
+    S.excluded.add(i);
+  } else if (S.excluded.has(i)) {
+    // excluded → neutral
+    S.excluded.delete(i);
+  } else {
+    // neutral → owned
+    S.owned.add(i);
+    S.ownedOrder.push(i);
+  }
+  refreshAll();
+  saveHash();
+}
+
+// Tab-3 legacy: only toggles owned (no exclusion state)
 function toggleOwned(i) {
-  if (S.owned.has(i)) S.owned.delete(i); else S.owned.add(i);
+  if (S.owned.has(i)) {
+    S.owned.delete(i);
+    S.ownedOrder = S.ownedOrder.filter(x => x !== i);
+  } else {
+    S.owned.add(i);
+    S.ownedOrder.push(i);
+    S.excluded.delete(i);
+  }
+  refreshAll();
+  saveHash();
+}
+
+function resetIngState() {
+  S.owned.clear();
+  S.excluded.clear();
+  S.ownedOrder = [];
+  refreshAll();
+  saveHash();
+}
+
+function refreshAll() {
   updateOwnedDisplay();
+  buildIngToolbar();
+  buildBrowser();
   buildRecommender();
   buildPlanner();
-  saveHash();
 }
 
 function updateOwnedDisplay() {
@@ -1073,8 +1443,12 @@ function initCK() {
 /* ── URL hash state ──────────────────────────────────────────────── */
 function saveHash() {
   const params = new URLSearchParams();
-  if (S.owned.size > 0) params.set('owned', [...S.owned].sort().join(','));
+  // Preserve click order in 'owned'
+  if (S.ownedOrder.length > 0) params.set('owned', S.ownedOrder.join(','));
+  if (S.excluded.size > 0) params.set('excluded', [...S.excluded].sort().join(','));
   if (S.minTier !== 0.48) params.set('tier', S.minTier);
+  if (S.tab !== 'browser') params.set('tab', S.tab);
+  if (S.hideSuperseded) params.set('hide', '1');
   const hash = params.toString();
   history.replaceState(null, '', hash ? '#' + hash : window.location.pathname);
 }
@@ -1084,9 +1458,192 @@ function loadHash() {
   if (!hash) return;
   const params = new URLSearchParams(hash);
   if (params.get('owned')) {
-    params.get('owned').split(',').map(Number).forEach(i => S.owned.add(i));
+    const order = params.get('owned').split(',').map(Number);
+    order.forEach(i => { S.owned.add(i); S.ownedOrder.push(i); });
+  }
+  if (params.get('excluded')) {
+    params.get('excluded').split(',').map(Number).forEach(i => S.excluded.add(i));
   }
   if (params.get('tier')) S.minTier = parseFloat(params.get('tier'));
+  if (params.get('tab')) S.tab = params.get('tab');
+  if (params.get('hide')) S.hideSuperseded = true;
+}
+
+/* ── Tab routing ─────────────────────────────────────────────────── */
+function switchTab(name) {
+  S.tab = name;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === `tab-${name}`));
+  saveHash();
+}
+
+function initTabs() {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+  });
+  switchTab(S.tab);
+}
+
+/* ── Tab 1: Ingredient toolbar (tri-state) ───────────────────────── */
+function buildIngToolbar() {
+  if (!S.data) return;
+  const bar = document.getElementById('ing-toolbar');
+  if (!bar) return;
+  bar.innerHTML = '';
+  S.data.row_order.forEach(i => {
+    const ing = S.data.ingredients[i];
+    const chip = document.createElement('button');
+    let cls = 'ing-toolchip';
+    if (S.owned.has(i))    cls += ' owned';
+    if (S.excluded.has(i)) cls += ' excluded';
+    chip.className = cls;
+    chip.dataset.iidx = i;
+    const orderIdx = S.ownedOrder.indexOf(i);
+    const orderBadge = orderIdx >= 0 ? `<span class="order-badge">${orderIdx + 1}</span>` : '';
+    const xBadge = S.excluded.has(i) ? '<span class="exclude-x">×</span>' : '';
+    chip.innerHTML = `${ingIconHTML(ing, 18)}<span>${ing.name}</span>${orderBadge}${xBadge}`;
+    chip.addEventListener('click', () => cycleIngState(i));
+    bar.appendChild(chip);
+  });
+}
+
+/* ── Tab 1: Recipe sections by type ──────────────────────────────── */
+function recipeStatus(recipe) {
+  // Returns: {state, missingCount, missingIngs, hasExcluded}
+  const ingByName = Object.fromEntries(S.data.ingredients.map((x, i) => [x.name, i]));
+  let owned = 0, missing = [], hasEx = false;
+  for (const ing of recipe.ingredients) {
+    const idx = ingByName[ing.name];
+    if (S.excluded.has(idx)) hasEx = true;
+    if (S.owned.has(idx)) owned++; else missing.push(idx);
+  }
+  let state;
+  if (hasEx)                              state = 'blocked';
+  else if (missing.length === 0)          state = 'cookable';
+  else if (missing.length <= 2)           state = 'near';
+  else                                    state = 'far';
+  return { state, missingCount: missing.length, missingIngs: missing, hasExcluded: hasEx };
+}
+
+function buildBrowser() {
+  if (!S.data) return;
+  const root = document.getElementById('recipe-sections');
+  if (!root) return;
+
+  const types = ['curry', 'salad', 'dessert'];
+  root.innerHTML = '';
+
+  for (const t of types) {
+    // Filter recipes for this type + tier filter
+    let recipes = S.data.recipes.filter(r =>
+      !r.is_placeholder &&
+      r.type_en === t &&
+      r.tier_bonus >= S.minTier &&
+      (S.search === '' ||
+        r.name.includes(S.search) ||
+        r.ingredients.some(i => i.name.includes(S.search)))
+    );
+
+    // Compute statuses
+    const withStatus = recipes.map(r => ({ recipe: r, ...recipeStatus(r) }));
+
+    // Hide-superseded: drop recipes whose score < max cookable of this type
+    if (S.hideSuperseded) {
+      const maxCookableScore = Math.max(
+        0,
+        ...withStatus.filter(x => x.state === 'cookable').map(x => x.recipe.score_final)
+      );
+      if (maxCookableScore > 0) {
+        // Keep recipes whose score >= maxCookableScore OR are not yet cookable (near/far/blocked) so the player still sees aspirational ones
+        // Wallace's spec: hide those with less energy than highest cookable. So we hide cookable ones too if below max.
+        recipes = withStatus.filter(x => x.recipe.score_final >= maxCookableScore).map(x => x.recipe);
+      } else {
+        recipes = withStatus.map(x => x.recipe);
+      }
+    }
+
+    // Sort by score desc
+    recipes.sort((a, b) => b.score_final - a.score_final);
+
+    const section = document.createElement('div');
+    section.className = 'recipe-section';
+
+    const headerLabel = TYPE_META[t].label.replace(/^[^\s]+\s/, '');
+    section.innerHTML = `
+      <div class="recipe-section-header ${t}">
+        <span class="section-emoji">${TYPE_META[t].emoji}</span>
+        <span>${headerLabel}</span>
+        <span class="section-count">${recipes.length} 道</span>
+      </div>
+      <div class="recipe-grid" id="grid-${t}"></div>
+    `;
+    root.appendChild(section);
+
+    const grid = section.querySelector('.recipe-grid');
+    for (const r of recipes) {
+      grid.appendChild(buildRecipeCard(r));
+    }
+  }
+}
+
+function buildRecipeCard(r) {
+  const status = recipeStatus(r);
+  const ingByName = Object.fromEntries(S.data.ingredients.map((x, i) => [x.name, i]));
+
+  const card = document.createElement('div');
+  card.className = `recipe-card ${typeClass(r.type_en)} ${status.state === 'cookable' ? 'cookable' : status.state === 'near' ? 'near-cookable' : status.state === 'blocked' ? 'blocked' : ''}`;
+  card.dataset.recipe = r.name_en;
+
+  const ingsHTML = r.ingredients.map(ing => {
+    const idx = ingByName[ing.name];
+    let cls = 'recipe-ing';
+    if (S.excluded.has(idx))    cls += ' excluded';
+    else if (S.owned.has(idx))  cls += ' owned';
+    else if (status.state === 'near') cls += ' missing';
+    return `<span class="${cls}">${ingIconHTML(S.data.ingredients[idx], 12)}×${ing.count}</span>`;
+  }).join('');
+
+  const missingBadge = status.state === 'near'
+    ? `<span class="miss-badge">差 ${status.missingCount}</span>`
+    : '';
+
+  card.innerHTML = `
+    <div class="tier-stripe"></div>
+    ${missingBadge}
+    <div class="recipe-card-title">
+      ${recipeIconHTML(r, 28)}
+      <span class="recipe-name">${r.name}</span>
+    </div>
+    <div class="recipe-card-meta">
+      <span class="score">🔥 ${r.score_final.toLocaleString()}</span>
+      <span>+${(r.tier_bonus * 100).toFixed(0)}%</span>
+    </div>
+    <div class="recipe-card-ings">${ingsHTML}</div>
+  `;
+
+  // Hover → tooltip (reuse existing)
+  card.addEventListener('mouseenter', e => {
+    showTooltip(e, r.name, r.type,
+      `<b>${(r.tier_bonus * 100).toFixed(0)}%</b> · ${r.score_final.toLocaleString()}分<br>` +
+      r.ingredients.map(i => `${i.name}×${i.count}`).join('、') +
+      (status.state === 'near' ? `<br><span style="color:var(--accent-bright)">差 ${status.missingCount} 種：${status.missingIngs.map(i => S.data.ingredients[i].name).join('、')}</span>` : '') +
+      (status.state === 'blocked' ? `<br><span style="color:var(--dessert)">含排除食材</span>` : ''));
+  });
+  card.addEventListener('mouseleave', () => hideTooltip());
+
+  return card;
+}
+
+/* ── Tab 1 controls ──────────────────────────────────────────────── */
+function initBrowserControls() {
+  document.getElementById('hide-superseded-toggle').addEventListener('change', e => {
+    S.hideSuperseded = e.target.checked;
+    buildBrowser();
+    saveHash();
+  });
+  document.getElementById('reset-btn').addEventListener('click', resetIngState);
+  // Sync from loaded hash
+  document.getElementById('hide-superseded-toggle').checked = S.hideSuperseded;
 }
 
 /* ── Tier filter ─────────────────────────────────────────────────── */
@@ -1096,13 +1653,13 @@ function initTierFilter() {
       document.querySelectorAll('.tier-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       S.minTier = parseFloat(btn.dataset.tier);
+      buildBrowser();
       buildMatrix();
       buildRecommender();
       buildPlanner();
       saveHash();
     });
   });
-  // sync initial state
   document.querySelectorAll('.tier-btn').forEach(btn => {
     btn.classList.toggle('active', parseFloat(btn.dataset.tier) === S.minTier);
   });
@@ -1112,6 +1669,7 @@ function initTierFilter() {
 function initSearch() {
   document.getElementById('search-input').addEventListener('input', e => {
     S.search = e.target.value.trim();
+    buildBrowser();
     buildMatrix();
     buildRecommender();
   });
@@ -1120,9 +1678,14 @@ function initSearch() {
 /* ── Init ────────────────────────────────────────────────────────── */
 function init() {
   loadHash();
+  initTabs();
   initTierFilter();
   initSearch();
   initCK();
+  initBrowserControls();
+
+  buildIngToolbar();
+  buildBrowser();
   buildMatrix();
   buildPicker();
   buildRecommender();
