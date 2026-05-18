@@ -490,33 +490,14 @@ body {
 }
 #popover.visible { display: flex; }
 
-/* Style 1: modal (centred) */
-#popover.style-modal {
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  width: min(720px, 92vw);
-  border-radius: 12px;
-}
-
-/* Style 2: drawer (right side slide-in) */
-#popover.style-drawer {
-  top: 0; right: 0; bottom: 0;
-  width: min(440px, 90vw);
-  max-height: 100vh;
-  border-radius: 0;
-  border-left: 1px solid var(--border);
-  border-right: none; border-top: none; border-bottom: none;
-}
-
-/* Style 3: dropdown (anchored to ⚙ button) */
-#popover.style-dropdown {
-  top: 52px; right: 16px;
-  width: min(420px, 92vw);
-  max-height: 80vh;
+/* Anchored to ⚙ button (top-right). No backdrop dim so tabs stay clickable. */
+#popover {
+  top: 52px;
+  right: 16px;
+  width: min(440px, 92vw);
+  max-height: 82vh;
   border-radius: 8px;
 }
-/* dropdown has no backdrop dimming */
-#popover.style-dropdown ~ #popover-backdrop { background: transparent; }
 
 #popover-header {
   display: flex;
@@ -640,6 +621,19 @@ body {
   white-space: nowrap;
   flex-shrink: 0;
 }
+.tier-readout {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+.tier-readout:hover { background: var(--accent-bright); }
 .ing-state-mini {
   display: inline-flex;
   align-items: center;
@@ -1417,31 +1411,40 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
 <div id="popover-backdrop"></div>
 <div id="popover" role="dialog" aria-label="食材設定">
   <header id="popover-header">
-    <h2>⚙ 食材設定（global · 所有 tab 共用）</h2>
-    <div id="popover-style-switch" title="切換顯示樣式（試試三種）">
-      <button data-style="modal">彈窗</button>
-      <button data-style="drawer">側拉</button>
-      <button data-style="dropdown">下拉</button>
-    </div>
+    <h2>⚙ 全域設定（所有 tab 共用）</h2>
     <button id="popover-close" aria-label="關閉">✕</button>
   </header>
   <div id="popover-body">
     <section class="ctrl-section">
       <div class="ctrl-header">
-        <span class="ctrl-h-title">① 你的食材庫存</span>
+        <span class="ctrl-h-title">① 階級篩選</span>
+        <span class="ctrl-h-note">只顯示此階級或以上的料理</span>
+      </div>
+      <div class="tier-filter tier-filter-group" data-source="popover">
+        <button class="tier-btn active" data-tier="0">全部</button>
+        <button class="tier-btn" data-tier="0.25">+25%↑</button>
+        <button class="tier-btn" data-tier="0.35">+35%↑</button>
+        <button class="tier-btn" data-tier="0.48">+48%↑</button>
+        <button class="tier-btn" data-tier="0.61">+61%↑</button>
+        <button class="tier-btn" data-tier="0.78">+78%↑</button>
+      </div>
+    </section>
+    <section class="ctrl-section">
+      <div class="ctrl-header">
+        <span class="ctrl-h-title">② 你的食材庫存</span>
         <span class="ctrl-h-note">點 1 次 = ✓ 已有・點 2 次 = ✗ 排除・點 3 次 = 取消</span>
       </div>
       <div id="popover-ing-toolbar"></div>
     </section>
     <section class="ctrl-section" id="popover-excluded-section" hidden>
       <div class="ctrl-header">
-        <span class="ctrl-h-title">② 已排除食材</span>
+        <span class="ctrl-h-title">③ 已排除食材</span>
         <span class="ctrl-h-note" id="popover-excluded-note">點食材取消排除</span>
       </div>
       <div id="popover-excluded-toolbar"></div>
     </section>
     <section class="ctrl-section">
-      <div class="ctrl-header"><span class="ctrl-h-title">③ 重設</span></div>
+      <div class="ctrl-header"><span class="ctrl-h-title">④ 重設</span></div>
       <button id="popover-reset-btn">↻ 重設全部食材狀態</button>
     </section>
   </div>
@@ -1455,8 +1458,9 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
   <button class="tab-btn" data-tab="animation">🎞 動畫</button>
 </div>
 
-<!-- Global read-only ingredient state strip (click any to open popover) -->
+<!-- Global read-only state strip: tier indicator + 19 ing mini chips (click any to open popover) -->
 <div id="ing-state-strip" class="ing-state-strip">
+  <button id="tier-readout" class="tier-readout" title="點開設定改階級">+48%↑</button>
   <span class="ing-state-strip-label">食材狀態（點開設定）</span>
 </div>
 
@@ -1469,22 +1473,8 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
 
     <section class="ctrl-section">
       <div class="ctrl-header">
-        <span class="ctrl-h-title">① 階級篩選</span>
-        <span class="ctrl-h-note">只顯示此階級或以上的料理</span>
-      </div>
-      <div class="tier-filter tier-filter-group" data-source="tab1">
-        <button class="tier-btn active" data-tier="0">全部</button>
-        <button class="tier-btn" data-tier="0.25">+25%↑</button>
-        <button class="tier-btn" data-tier="0.35">+35%↑</button>
-        <button class="tier-btn" data-tier="0.48">+48%↑</button>
-        <button class="tier-btn" data-tier="0.61">+61%↑</button>
-        <button class="tier-btn" data-tier="0.78">+78%↑</button>
-      </div>
-    </section>
-
-    <section class="ctrl-section">
-      <div class="ctrl-header">
-        <span class="ctrl-h-title">② 顯示選項</span>
+        <span class="ctrl-h-title">顯示選項</span>
+        <span class="ctrl-h-note">階級與食材設定都在 ⚙ 全域設定</span>
       </div>
       <div class="ctrl-options">
         <label class="browser-toggle">
@@ -1504,16 +1494,7 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
 <!-- Tab 2: Stats (per-ingredient occurrence + demand) -->
 <div class="tab-content" id="tab-stats">
   <div id="stats-controls">
-    <span style="font-size:11px;color:var(--text-muted);">階級篩選</span>
-    <div class="tier-filter tier-filter-group" data-source="tab2">
-      <button class="tier-btn active" data-tier="0">全部</button>
-      <button class="tier-btn" data-tier="0.25">+25%↑</button>
-      <button class="tier-btn" data-tier="0.35">+35%↑</button>
-      <button class="tier-btn" data-tier="0.48">+48%↑</button>
-      <button class="tier-btn" data-tier="0.61">+61%↑</button>
-      <button class="tier-btn" data-tier="0.78">+78%↑</button>
-    </div>
-    <label style="font-size:11px;color:var(--text-muted);margin-left:auto;">排序：
+    <label style="font-size:11px;color:var(--text-muted);">排序：
       <select id="stats-sort-select">
         <option value="total">全部出現次數</option>
         <option value="curry">咖哩需求</option>
@@ -1549,17 +1530,6 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
 
 <!-- Tab 3: Explore (v1 panels — Map / Recommender / Planner with shared state) -->
 <div class="tab-content" id="tab-explore">
-  <div id="explore-controls">
-    <span style="font-size:11px;color:var(--text-muted);">階級篩選</span>
-    <div class="tier-filter tier-filter-group" data-source="tab3">
-      <button class="tier-btn active" data-tier="0">全部</button>
-      <button class="tier-btn" data-tier="0.25">+25%↑</button>
-      <button class="tier-btn" data-tier="0.35">+35%↑</button>
-      <button class="tier-btn" data-tier="0.48">+48%↑</button>
-      <button class="tier-btn" data-tier="0.61">+61%↑</button>
-      <button class="tier-btn" data-tier="0.78">+78%↑</button>
-    </div>
-  </div>
   <div id="main">
 
   <!-- Map Panel -->
@@ -2352,52 +2322,35 @@ function buildIngStateStrip() {
   }
 }
 
-/* ── Popover control ──────────────────────────────────────────── */
-function openPopover(style) {
+/* ── Popover control (dropdown style, anchored top-right) ─────── */
+function openPopover() {
   const pop = document.getElementById('popover');
-  const backdrop = document.getElementById('popover-backdrop');
-  if (style) S.popoverStyle = style;
-  pop.classList.remove('style-modal', 'style-drawer', 'style-dropdown');
-  pop.classList.add(`style-${S.popoverStyle}`);
   pop.classList.add('visible');
-  // Dropdown style intentionally has no backdrop dim
-  if (S.popoverStyle !== 'dropdown') backdrop.classList.add('visible');
-  document.querySelectorAll('#popover-style-switch button').forEach(b => {
-    b.classList.toggle('active', b.dataset.style === S.popoverStyle);
-  });
   document.getElementById('open-settings').classList.remove('hint-pulse');
   try { localStorage.setItem('pokeSleepHinted', '1'); } catch (e) {}
 }
 
 function closePopover() {
   document.getElementById('popover').classList.remove('visible');
-  document.getElementById('popover-backdrop').classList.remove('visible');
-}
-
-function setPopoverStyle(style) {
-  closePopover();
-  S.popoverStyle = style;
-  try { localStorage.setItem('pokeSleepPopoverStyle', style); } catch (e) {}
-  openPopover();
 }
 
 function initPopover() {
-  try {
-    const stored = localStorage.getItem('pokeSleepPopoverStyle');
-    if (stored && ['modal', 'drawer', 'dropdown'].includes(stored)) {
-      S.popoverStyle = stored;
-    }
-  } catch (e) {}
-
   document.getElementById('open-settings').addEventListener('click', () => openPopover());
   document.getElementById('popover-close').addEventListener('click', closePopover);
-  document.getElementById('popover-backdrop').addEventListener('click', closePopover);
   document.getElementById('popover-reset-btn').addEventListener('click', resetIngState);
-  document.querySelectorAll('#popover-style-switch button').forEach(btn => {
-    btn.addEventListener('click', () => setPopoverStyle(btn.dataset.style));
+  document.getElementById('tier-readout').addEventListener('click', () => openPopover());
+
+  // Click outside popover (anywhere on the page) closes it
+  document.addEventListener('click', e => {
+    const pop = document.getElementById('popover');
+    if (!pop.classList.contains('visible')) return;
+    if (pop.contains(e.target)) return;
+    // Trigger buttons that should open / keep popover open
+    if (e.target.closest('#open-settings, #tier-readout, .ing-state-mini')) return;
+    closePopover();
   });
 
-  // First-visit: auto-open after a short pause; pulse keeps until first open
+  // First-visit: auto-open + keep pulse until first opened
   let hinted = false;
   try { hinted = localStorage.getItem('pokeSleepHinted') === '1'; } catch (e) {}
   if (!hinted) {
@@ -2758,6 +2711,13 @@ function syncTierButtons() {
   document.querySelectorAll('.tier-btn').forEach(btn => {
     btn.classList.toggle('active', parseFloat(btn.dataset.tier) === S.minTier);
   });
+  // Update read-only tier indicator in strip
+  const readout = document.getElementById('tier-readout');
+  if (readout) {
+    readout.textContent = S.minTier === 0
+      ? '全部 階級'
+      : `+${(S.minTier * 100).toFixed(0)}%↑`;
+  }
 }
 function initTierFilter() {
   document.querySelectorAll('.tier-btn').forEach(btn => {
