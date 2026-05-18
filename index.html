@@ -1413,12 +1413,29 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
   flex: 1;
   display: flex;
 }
-#explore-graph {
+#explore-graph, #explore-graph-tab2 {
   width: 100%;
   height: 100%;
-  min-height: 420px;
+  min-height: 460px;
   background: var(--bg);
   border-radius: 6px;
+}
+#stats-graph-wrap {
+  flex: 1;
+  display: flex;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  min-height: 0;
+  overflow: auto;
+}
+#explore-graph-tab2 { min-height: 520px; }
+.g-row-divider {
+  stroke: var(--border);
+  stroke-width: 0.5;
+  stroke-dasharray: 2,4;
+  opacity: 0.6;
 }
 /* Ing nodes (top row) */
 .g-ing-node { cursor: pointer; }
@@ -1433,8 +1450,9 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
 .g-ing-node.excluded .g-ing-img    { opacity: 0.5; filter: grayscale(1); }
 .g-ing-node.highlight .g-ing-circle { stroke: var(--accent-bright); stroke-width: 3; }
 .g-ing-node .g-ing-label {
-  font-size: 9.5px;
-  fill: var(--text-muted);
+  font-size: 10.5px;
+  font-weight: 600;
+  fill: var(--text);
   text-anchor: middle;
   pointer-events: none;
 }
@@ -1796,6 +1814,7 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
     <div class="sub-tabbar">
       <button class="sub-tab-btn active" data-view="table">📊 統計表</button>
       <button class="sub-tab-btn" data-view="matrix">🗺 矩陣</button>
+      <button class="sub-tab-btn" data-view="graph">🕸 弧形圖</button>
     </div>
     <div class="stat-axis">
       <span class="stat-axis-label">類型</span>
@@ -1825,6 +1844,14 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
     <div id="stats-view-matrix" class="stats-view">
       <div id="stats-matrix-wrap">
         <div id="stats-matrix"></div>
+      </div>
+    </div>
+    <div id="stats-view-graph" class="stats-view">
+      <div id="stats-graph-summary" style="font-size:11px;color:var(--text-muted);padding:0 0 6px;">
+        <span id="map-state-summary-tab2">hover 食材 / 料理 看連線</span>
+      </div>
+      <div id="stats-graph-wrap">
+        <svg id="explore-graph-tab2" preserveAspectRatio="xMidYMid meet"></svg>
       </div>
     </div>
   </div>
@@ -2079,8 +2106,15 @@ function buildMatrix() {
 
 function buildExploreMap() {
   if (!S.data) return;
-  const svg = document.getElementById('explore-graph');
-  if (!svg) return;
+  // Render the arc graph into every SVG container that exists
+  // (currently Tab 3's #explore-graph and Tab 2's #explore-graph-tab2).
+  const svgs = ['explore-graph', 'explore-graph-tab2']
+    .map(id => document.getElementById(id))
+    .filter(Boolean);
+  for (const svg of svgs) renderArcGraph(svg);
+}
+
+function renderArcGraph(svg) {
   const { ingredients, recipes } = S.data;
   const ingByName = Object.fromEntries(ingredients.map((x, i) => [x.name, i]));
 
@@ -2152,6 +2186,14 @@ function buildExploreMap() {
     }
   }
 
+  // Row dividers (subtle dashed horizontal lines between recipe rows)
+  for (const t of typeOrder) {
+    const divider = document.createElementNS(ns, 'line');
+    divider.setAttribute('class', 'g-row-divider');
+    divider.setAttribute('x1', 4); divider.setAttribute('x2', W - 4);
+    divider.setAttribute('y1', rowY[t] - 28); divider.setAttribute('y2', rowY[t] - 28);
+    svg.appendChild(divider);
+  }
   // Type-row labels
   for (const t of typeOrder) {
     const label = document.createElementNS(ns, 'text');
@@ -2237,13 +2279,12 @@ function buildExploreMap() {
     }
   }
 
-  // Summary
-  const summary = document.getElementById('map-state-summary');
-  if (summary) {
-    const cookable = document.querySelectorAll('.g-recipe-node.cookable').length;
-    const near = document.querySelectorAll('.g-recipe-node.near-cookable').length;
-    summary.textContent = `可煮 ${cookable} · 差 1-2 種 ${near} · hover 看連線`;
-  }
+  // Summary — count per-SVG to avoid double-counting across both instances
+  const cookable = svg.querySelectorAll('.g-recipe-node.cookable').length;
+  const near = svg.querySelectorAll('.g-recipe-node.near-cookable').length;
+  const summaryText = `可煮 ${cookable} · 差 1-2 種 ${near} · hover 看連線`;
+  document.getElementById('map-state-summary')?.replaceChildren(document.createTextNode(summaryText));
+  document.getElementById('map-state-summary-tab2')?.replaceChildren(document.createTextNode(summaryText));
 }
 
 function highlightIngOnGraph(idx) {
