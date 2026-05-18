@@ -1360,6 +1360,163 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
   flex-shrink: 0;
 }
 
+/* ── Tab 3 Map (bipartite state visualization) ───────────────── */
+#explore-map { padding: 12px 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+.map-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-bottom: 6px;
+  color: var(--accent-bright);
+}
+.map-section-title .dim { color: var(--text-muted); font-weight: 400; font-size: 10.5px; }
+
+#map-ing-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.map-ing-node {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px 4px 5px;
+  border: 1.5px solid var(--border);
+  border-radius: 16px;
+  font-size: 11px;
+  background: var(--surface);
+  cursor: pointer;
+  position: relative;
+  user-select: none;
+  transition: transform 0.12s, box-shadow 0.12s;
+}
+.map-ing-node img { width: 18px; height: 18px; flex-shrink: 0; }
+.map-ing-node:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(121,134,203,0.25); }
+.map-ing-node.owned {
+  border-color: var(--owned);
+  background: rgba(102,187,106,0.12);
+  color: var(--owned);
+  font-weight: 700;
+}
+.map-ing-node.excluded {
+  border-color: var(--dessert);
+  background: rgba(240,98,146,0.10);
+  color: var(--dessert);
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+.map-ing-node.related {
+  box-shadow: 0 0 0 2px var(--accent-bright);
+  z-index: 1;
+}
+.map-ing-node.missing-for-near {
+  border-color: var(--accent);
+  background: rgba(121,134,203,0.18);
+  color: var(--accent-bright);
+}
+
+#map-recipe-groups {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.map-recipe-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.map-recipe-group-header {
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 4px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.04em;
+}
+.map-recipe-group-header.curry   { color: var(--curry);   background: color-mix(in srgb, var(--curry)   18%, var(--surface)); }
+.map-recipe-group-header.salad   { color: var(--salad);   background: color-mix(in srgb, var(--salad)   22%, var(--surface)); }
+.map-recipe-group-header.dessert { color: var(--dessert); background: color-mix(in srgb, var(--dessert) 18%, var(--surface)); }
+
+.map-recipe-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 2px 0;
+}
+.map-recipe-node {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px 3px 5px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  cursor: pointer;
+  position: relative;
+  user-select: none;
+  font-size: 11px;
+  transition: transform 0.12s;
+  opacity: 0.7;
+}
+.map-recipe-node img { width: 18px; height: 18px; flex-shrink: 0; }
+.map-recipe-node .map-rname {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.map-recipe-node:hover { transform: translateX(2px); opacity: 1; }
+.map-recipe-node.cookable {
+  opacity: 1;
+  border-color: var(--owned);
+  background: rgba(102,187,106,0.12);
+}
+.map-recipe-node.cookable::after { content: '✓'; color: var(--owned); font-weight: 700; }
+.map-recipe-node.near-cookable {
+  opacity: 0.95;
+  border-color: var(--accent);
+  background: rgba(121,134,203,0.10);
+}
+.map-recipe-node.near-cookable .near-badge {
+  background: var(--accent);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 7px;
+}
+.map-recipe-node.hidden-by-exclude { display: none; }
+.map-recipe-node.related {
+  box-shadow: 0 0 0 2px var(--accent-bright);
+  opacity: 1;
+  z-index: 1;
+}
+
+.panel-header-note { font-weight: 400; color: var(--text-muted); font-size: 11px; }
+.info-icon {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  border-radius: 50%;
+  width: 18px; height: 18px;
+  font-size: 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.info-icon:hover { color: var(--accent-bright); border-color: var(--accent); }
+#rec-explainer, #plan-explainer {
+  background: var(--surface2);
+  border-left: 3px solid var(--accent);
+  padding: 8px 10px;
+  margin-bottom: 10px;
+  font-size: 10.5px;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+#rec-explainer p, #plan-explainer p { margin-bottom: 4px; }
+#rec-explainer b, #plan-explainer b { color: var(--text); }
+
 /* ── Coming-soon placeholders for Tabs 2 / 4 ────────────────── */
 .tab-placeholder {
   flex: 1;
@@ -1518,26 +1675,21 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
 <div class="tab-content" id="tab-explore">
   <div id="main">
 
-  <!-- Map Panel -->
+  <!-- Map Panel: bipartite visualization of state -->
   <div class="panel" id="map-panel">
     <div class="panel-header">
-      <span>🗺 食材 × 料理矩陣</span>
-      <span id="map-recipe-count" style="font-weight:400;color:var(--text-muted)"></span>
+      <span>🗺 探索地圖</span>
+      <span class="panel-header-note" id="map-state-summary"></span>
     </div>
-    <div id="map-scroll" class="panel-body" style="padding:4px;">
-      <div id="matrix-container">
-        <div id="ing-col">
-          <div id="ing-labels"></div>
-        </div>
-        <div id="matrix-wrap">
-          <div id="recipe-header"></div>
-          <div id="matrix-grid"></div>
-        </div>
-        <div id="coocc-wrap">
-          <div id="coocc-title">食材共現 (19×19)</div>
-          <div id="coocc-grid"></div>
-        </div>
-      </div>
+    <div class="panel-body" id="explore-map">
+      <section class="map-section">
+        <h4 class="map-section-title">食材 <span class="dim">(hover 看相關料理)</span></h4>
+        <div id="map-ing-row"></div>
+      </section>
+      <section class="map-section map-recipes-wrap">
+        <h4 class="map-section-title">料理 <span class="dim" id="map-recipes-count">(hover 看所需食材)</span></h4>
+        <div id="map-recipe-groups"></div>
+      </section>
     </div>
   </div>
 
@@ -1546,20 +1698,31 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
 
     <!-- Recommender Panel -->
     <div class="panel" id="rec-panel">
-      <div class="panel-header">💡 下一個食材推薦</div>
+      <div class="panel-header">
+        <span>💡 下一個食材推薦</span>
+        <button class="info-icon" id="rec-info-btn" title="說明">ⓘ</button>
+      </div>
       <div class="panel-body">
-        <div class="ing-picker" id="ing-picker"></div>
-        <div class="rec-section">
-          <h3>推薦（邊際增益 ↓）</h3>
-          <div id="rec-list"></div>
+        <div id="rec-explainer" hidden>
+          <p>給定你目前已有的食材集，這個面板計算<b>下一個最值得抓的食材</b>：</p>
+          <p>對每個還沒擁有的食材 x，算「加入 x 後能多解鎖多少料理（按階級分數加權）」。排序顯示前 3。</p>
+          <p>把選定推薦 hover 一下，Map 會亮起該食材能解鎖的料理。</p>
         </div>
+        <div id="rec-list" class="rec-list-pad">先在 ⚙ 食材設定打勾你已有的食材</div>
       </div>
     </div>
 
     <!-- Planner Panel -->
     <div class="panel" id="plan-panel" style="border-right:none;">
-      <div class="panel-header">🎯 畢業路徑規劃</div>
+      <div class="panel-header">
+        <span>🎯 畢業路徑規劃</span>
+        <button class="info-icon" id="plan-info-btn" title="說明">ⓘ</button>
+      </div>
       <div class="panel-body">
+        <div id="plan-explainer" hidden>
+          <p>「畢業」= 能煮出三系（咖哩/沙拉/點心）的最高階料理。</p>
+          <p>面板顯示這些目標料理需要的<b>食材總集</b>，並列出你還缺哪些。Hover 缺少食材 → Map 亮起對應料理。</p>
+        </div>
         <div class="plan-controls">
           <div class="plan-row">
             <label>目標階級</label>
@@ -1751,154 +1914,120 @@ document.addEventListener('mousemove', e => { if (tooltip.classList.contains('vi
 let matrixIngCols = []; // rendered ingredient column indices (in display order)
 let matrixRecCols = []; // rendered recipe column indices (in display order)
 
+/* ── Tab 3 — Explore Map: bipartite state visualization ────────── */
 function buildMatrix() {
-  const { ingredients, recipes, incidence, row_order, cooccurrence } = S.data;
-  const colIndices = filteredRecipeIndices();
-  matrixIngCols = row_order; // all 19 ingredients in spectral order
-  matrixRecCols = colIndices;
-
-  // Recipe header
-  const recHeader = document.getElementById('recipe-header');
-  recHeader.innerHTML = '';
-  colIndices.forEach(j => {
-    const r = recipes[j];
-    const div = document.createElement('div');
-    div.className = `recipe-col-label ${typeClass(r.type_en)}`;
-    div.dataset.ridx = j;
-    div.innerHTML = `<span>${r.name}</span>`;
-    div.addEventListener('mouseenter', e => {
-      highlightRecipe(j);
-      showTooltip(e, r.name, r.type,
-        `<b>${(r.tier_bonus * 100).toFixed(0)}%</b> · ${r.score_final.toLocaleString()}分<br>` +
-        r.ingredients.map(i => `${i.name}×${i.count}`).join('、'));
-    });
-    div.addEventListener('mouseleave', () => { clearHighlight(); hideTooltip(); });
-    recHeader.appendChild(div);
-  });
-
-  // Ingredient labels
-  const ingLabels = document.getElementById('ing-labels');
-  ingLabels.innerHTML = '';
-  row_order.forEach(i => {
-    const ing = ingredients[i];
-    const div = document.createElement('div');
-    div.className = 'ing-label' + (S.owned.has(i) ? ' owned' : '');
-    div.dataset.iidx = i;
-    div.innerHTML = `<span class="owned-dot"></span><span class="ing-emoji">${ingIconHTML(ing, 14)}</span>${ing.name}`;
-    div.addEventListener('click', () => { toggleOwned(i); });
-    div.addEventListener('mouseenter', e => {
-      highlightIngredient(i);
-      const freq = incidence[i].reduce((s,v)=>s+v,0);
-      showTooltip(e, ing.name, '',
-        `${ing.base_score}分/個 · 出現 ${freq} 道料理<br>${ing.name_en}`);
-    });
-    div.addEventListener('mouseleave', () => { clearHighlight(); hideTooltip(); });
-    ingLabels.appendChild(div);
-  });
-
-  // Matrix grid
-  const grid = document.getElementById('matrix-grid');
-  grid.innerHTML = '';
-  row_order.forEach(i => {
-    const row = document.createElement('div');
-    row.className = 'matrix-row';
-    row.dataset.iidx = i;
-    colIndices.forEach(j => {
-      const cell = document.createElement('div');
-      const used = incidence[i][j];
-      const r = recipes[j];
-      cell.className = `matrix-cell ${used ? typeClass(r.type_en) : 'empty'}${S.owned.has(i) && used ? ' owned' : ''}`;
-      cell.dataset.iidx = i;
-      cell.dataset.ridx = j;
-      if (used) {
-        const ingData = r.ingredients.find(x => x.name === ingredients[i].name);
-        cell.addEventListener('mouseenter', e => {
-          highlightBoth(i, j);
-          showTooltip(e, r.name, r.type,
-            `${ingredients[i].name}×${ingData?.count ?? '?'}<br>${(r.tier_bonus*100).toFixed(0)}% · ${r.score_final.toLocaleString()}分`);
-        });
-        cell.addEventListener('mouseleave', () => { clearHighlight(); hideTooltip(); });
-        cell.addEventListener('click', () => { toggleOwned(i); });
-      }
-      row.appendChild(cell);
-    });
-    grid.appendChild(row);
-  });
-
-  document.getElementById('map-recipe-count').textContent = `${colIndices.length} 道料理`;
-
-  buildCooccurrence();
+  // Note: kept function name 'buildMatrix' to preserve all existing callers
+  // (initTierFilter, init, etc.). The implementation now renders the new
+  // explore-map bipartite view, NOT a heatmap matrix.
+  buildExploreMap();
 }
 
-/* ── Co-occurrence ──────────────────────────────────────────────── */
-function buildCooccurrence() {
-  const { cooccurrence, row_order, ingredients } = S.data;
-  const grid = document.getElementById('coocc-grid');
-  grid.innerHTML = '';
-  const maxVal = Math.max(...row_order.map(i => cooccurrence[i][i]));
+function buildExploreMap() {
+  if (!S.data) return;
+  const { ingredients, recipes } = S.data;
+  const ingByName = Object.fromEntries(ingredients.map((x, i) => [x.name, i]));
 
-  row_order.forEach(i => {
-    const row = document.createElement('div');
-    row.className = 'coocc-row';
-    row_order.forEach(j => {
-      const cell = document.createElement('div');
-      const v = cooccurrence[i][j];
-      const alpha = i === j ? 0.25 : Math.max(0.05, v / maxVal * 0.9);
-      cell.className = 'coocc-cell';
-      cell.style.background = `rgba(121,134,203,${alpha})`;
-      cell.dataset.i = i; cell.dataset.j = j;
-      cell.title = `${ingredients[i].name} × ${ingredients[j].name}: ${v} 道`;
-      cell.addEventListener('mouseenter', () => highlightIngredient(i));
-      cell.addEventListener('mouseleave', () => clearHighlight());
-      row.appendChild(cell);
-    });
-    grid.appendChild(row);
+  // Active recipes: tier filter (excluded ings handled per-recipe via .hidden-by-exclude)
+  const activeRecipes = recipes.filter(r =>
+    !r.is_placeholder && r.tier_bonus >= S.minTier
+  );
+
+  // 1) Ingredient row — 19 nodes, in-game ID order
+  const ingRow = document.getElementById('map-ing-row');
+  if (!ingRow) return;
+  ingRow.innerHTML = '';
+  ingredients.forEach((ing, i) => {
+    const node = document.createElement('div');
+    let cls = 'map-ing-node';
+    if (S.owned.has(i))    cls += ' owned';
+    if (S.excluded.has(i)) cls += ' excluded';
+    node.className = cls;
+    node.dataset.iidx = i;
+    node.innerHTML = `<img src="assets/icons/ingredients/${ing.key}.png" alt=""><span>${ing.name}</span>`;
+    node.addEventListener('mouseenter', () => highlightIngredient(i));
+    node.addEventListener('mouseleave', () => clearHighlight());
+    node.addEventListener('click', () => openPopover());
+    ingRow.appendChild(node);
   });
+
+  // 2) Recipe nodes grouped by type
+  const groups = document.getElementById('map-recipe-groups');
+  if (!groups) return;
+  groups.innerHTML = '';
+  const typeOrder = ['curry', 'salad', 'dessert'];
+  const typeLabels = { curry: '🍛 咖哩、濃湯', salad: '🥗 沙拉', dessert: '🧁 點心、飲料' };
+  const grouped = Object.fromEntries(typeOrder.map(t => [t, []]));
+  for (const r of activeRecipes) grouped[r.type_en].push(r);
+
+  for (const t of typeOrder) {
+    const list = grouped[t].sort((a, b) => b.score_final - a.score_final);
+    const groupEl = document.createElement('div');
+    groupEl.className = 'map-recipe-group';
+    groupEl.innerHTML = `
+      <div class="map-recipe-group-header ${t}">${typeLabels[t]} <span style="font-weight:400;opacity:0.7">(${list.length})</span></div>
+      <div class="map-recipe-list"></div>
+    `;
+    const listEl = groupEl.querySelector('.map-recipe-list');
+    for (const r of list) {
+      const node = document.createElement('div');
+      const ingIdxs = r.ingredients.map(x => ingByName[x.name]);
+      const missing = ingIdxs.filter(i => !S.owned.has(i));
+      const hasExcluded = ingIdxs.some(i => S.excluded.has(i));
+      let cls = `map-recipe-node ${t}`;
+      if (hasExcluded) cls += ' hidden-by-exclude';
+      else if (missing.length === 0) cls += ' cookable';
+      else if (missing.length <= 2 && ingIdxs.length - missing.length > 0) cls += ' near-cookable';
+      node.className = cls;
+      node.dataset.ridx = r.name_en;
+      node.dataset.ings = ingIdxs.join(',');
+      const nearBadge = (missing.length > 0 && missing.length <= 2 && ingIdxs.length - missing.length > 0)
+        ? `<span class="near-badge">差${missing.length}</span>` : '';
+      node.innerHTML = `${recipeIconHTML(r, 18)}<span class="map-rname">${r.name}</span>${nearBadge}`;
+      node.addEventListener('mouseenter', e => {
+        highlightRecipe(node, ingIdxs);
+        showTooltip(e, r.name, r.type,
+          `<b>+${(r.tier_bonus*100).toFixed(0)}%</b> · ${r.score_final.toLocaleString()} 分<br>` +
+          r.ingredients.map(i => `${i.name}×${i.count}`).join('、'));
+      });
+      node.addEventListener('mouseleave', () => { clearHighlight(); hideTooltip(); });
+      listEl.appendChild(node);
+    }
+    groups.appendChild(groupEl);
+  }
+
+  // Summary
+  const summary = document.getElementById('map-state-summary');
+  if (summary) {
+    const cookable = document.querySelectorAll('.map-recipe-node.cookable').length;
+    const near = document.querySelectorAll('.map-recipe-node.near-cookable').length;
+    summary.textContent = `可煮 ${cookable} · 差 1-2 種 ${near}`;
+  }
 }
 
-/* ── Highlighting ───────────────────────────────────────────────── */
+/* ── Linked highlighting ───────────────────────────────────────── */
 function highlightIngredient(idx) {
   S.highlight = { type: 'ingredient', idx };
-  document.querySelectorAll('.ing-label').forEach(el => {
-    el.classList.toggle('highlight', parseInt(el.dataset.iidx) === idx);
-  });
-  document.querySelectorAll('.matrix-cell').forEach(el => {
-    const i = parseInt(el.dataset.iidx), j = parseInt(el.dataset.ridx);
-    if (el.classList.contains('empty')) { el.classList.add('dimmed'); return; }
-    el.classList.toggle('highlight', i === idx);
-    el.classList.toggle('dimmed', i !== idx);
-  });
-  updatePicker();
-}
-
-function highlightRecipe(jdx) {
-  S.highlight = { type: 'recipe', idx: jdx };
-  document.querySelectorAll('.recipe-col-label').forEach(el => {
-    el.classList.toggle('highlight', parseInt(el.dataset.ridx) === jdx);
-  });
-  document.querySelectorAll('.matrix-cell').forEach(el => {
-    const j = parseInt(el.dataset.ridx);
-    if (el.classList.contains('empty')) { el.classList.add('dimmed'); return; }
-    el.classList.toggle('highlight', j === jdx);
-    el.classList.toggle('dimmed', j !== jdx);
+  // Highlight related recipes (those using this ing) in the Map
+  document.querySelectorAll('.map-recipe-node').forEach(el => {
+    const ings = (el.dataset.ings || '').split(',').map(Number);
+    el.classList.toggle('related', ings.includes(idx));
   });
 }
 
-function highlightBoth(i, j) {
-  highlightIngredient(i);
-  document.querySelectorAll(`.matrix-cell[data-ridx="${j}"]`).forEach(el => {
-    if (!el.classList.contains('empty')) el.classList.add('highlight');
+function highlightRecipe(nodeEl, ingIdxs) {
+  S.highlight = { type: 'recipe', ings: ingIdxs };
+  // Highlight the recipe's required ings in the Map
+  document.querySelectorAll('.map-ing-node').forEach(el => {
+    el.classList.toggle('related', ingIdxs.includes(parseInt(el.dataset.iidx)));
   });
 }
+
+function highlightBoth(i, j) { /* legacy no-op */ }
 
 function clearHighlight() {
   S.highlight = null;
-  document.querySelectorAll('.ing-label').forEach(el => el.classList.remove('highlight'));
-  document.querySelectorAll('.recipe-col-label').forEach(el => el.classList.remove('highlight'));
-  document.querySelectorAll('.matrix-cell').forEach(el => {
-    el.classList.remove('highlight', 'dimmed');
-  });
-  updatePicker();
+  document.querySelectorAll('.map-ing-node.related, .map-recipe-node.related')
+    .forEach(el => el.classList.remove('related'));
 }
 
 /* ── Owned / Picker ─────────────────────────────────────────────── */
@@ -1949,45 +2078,20 @@ function refreshAll() {
   buildIngStateStrip();
   buildBrowser();
   buildStats();
+  buildMatrix();        // = buildExploreMap (Tab 3 bipartite)
   buildRecommender();
   buildPlanner();
 }
 
 function updateOwnedDisplay() {
-  document.querySelectorAll('.ing-label').forEach(el => {
-    el.classList.toggle('owned', S.owned.has(parseInt(el.dataset.iidx)));
-  });
-  document.querySelectorAll('.matrix-cell').forEach(el => {
-    const i = parseInt(el.dataset.iidx);
-    el.classList.toggle('owned', S.owned.has(i) && !el.classList.contains('empty'));
-  });
+  // Legacy DOM (ing-label, matrix-cell, ing-chip) removed by Tab 3 refactor.
+  // Owned count + new Map state are rendered by buildIngStateStrip() and buildExploreMap().
   document.getElementById('owned-count').textContent = `已有 ${S.owned.size} / 19 食材`;
-  updatePicker();
 }
 
-function updatePicker() {
-  document.querySelectorAll('.ing-chip').forEach(el => {
-    el.classList.toggle('owned', S.owned.has(parseInt(el.dataset.iidx)));
-  });
-}
+function updatePicker() { /* no-op — ing-picker removed (popover handles editing) */ }
 
-function buildPicker() {
-  const { ingredients, row_order } = S.data;
-  const picker = document.getElementById('ing-picker');
-  picker.innerHTML = '';
-  row_order.forEach(i => {
-    const ing = ingredients[i];
-    const chip = document.createElement('div');
-    chip.className = 'ing-chip' + (S.owned.has(i) ? ' owned' : '');
-    chip.dataset.iidx = i;
-    chip.title = ing.name_en;
-    chip.innerHTML = `${ingIconHTML(ing, 16)}<span>${ing.name}</span>`;
-    chip.addEventListener('click', () => toggleOwned(i));
-    chip.addEventListener('mouseenter', () => highlightIngredient(i));
-    chip.addEventListener('mouseleave', () => clearHighlight());
-    picker.appendChild(chip);
-  });
-}
+function buildPicker() { /* no-op — ing-picker removed; editing is in popover */ }
 
 /* ── Recommender ────────────────────────────────────────────────── */
 function buildRecommender() {
@@ -2086,7 +2190,7 @@ function buildRecommender() {
 
     card.addEventListener('mouseenter', () => highlightIngredient(c.idx));
     card.addEventListener('mouseleave', () => clearHighlight());
-    card.addEventListener('click', () => toggleOwned(c.idx));
+    card.addEventListener('click', () => openPopover());
     recList.appendChild(card);
   });
 }
@@ -2140,7 +2244,7 @@ function buildPlanner() {
     badge.className = `plan-badge ${cls}`;
     badge.innerHTML = `${ingIconHTML(ing, 14)} ${ing.name}`;
     badge.style.cursor = 'pointer';
-    badge.addEventListener('click', () => toggleOwned(i));
+    badge.addEventListener('click', () => openPopover());
     badge.addEventListener('mouseenter', () => highlightIngredient(i));
     badge.addEventListener('mouseleave', () => clearHighlight());
     badgesEl.appendChild(badge);
@@ -2320,6 +2424,16 @@ function openPopover() {
 
 function closePopover() {
   document.getElementById('popover').classList.remove('visible');
+}
+
+function initExploreInfo() {
+  const toggle = (id) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.hidden = !el.hidden;
+  };
+  document.getElementById('rec-info-btn')?.addEventListener('click', () => toggle('rec-explainer'));
+  document.getElementById('plan-info-btn')?.addEventListener('click', () => toggle('plan-explainer'));
 }
 
 function initPopover() {
@@ -2778,6 +2892,7 @@ function init() {
   initBrowserControls();
   initStatsControls();
   initPopover();
+  initExploreInfo();
 
   buildIngToolbar();
   buildIngStateStrip();
