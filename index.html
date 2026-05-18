@@ -1490,6 +1490,27 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
 .g-edge.related { opacity: 0.55; stroke-width: 1.5; }
 .g-edge.owned-perm { opacity: 0.18; stroke: var(--owned); }
 .g-edge.cookable-perm { opacity: 0.35; stroke: var(--owned); stroke-width: 1.5; }
+/* Ghost preview: when user hovers a recommended/needed ing,
+   simulate "what if I had this" — edges + recipes light up tier-yellow */
+.g-edge.preview { opacity: 0.55; stroke: var(--tier-high); stroke-width: 1.6; stroke-dasharray: 3,2; }
+.g-ing-node.previewing .g-ing-circle {
+  fill: rgba(255,213,79,0.30);
+  stroke: var(--tier-high);
+  stroke-width: 2.5;
+  stroke-dasharray: 3,2;
+}
+.g-recipe-node.would-cook .g-rec-circle {
+  opacity: 1;
+  stroke: var(--tier-high);
+  stroke-width: 2.5;
+  stroke-dasharray: 2.5,1.5;
+}
+.g-recipe-node.would-near .g-rec-circle {
+  opacity: 0.85;
+  stroke: var(--tier-high);
+  stroke-width: 2;
+  stroke-dasharray: 2,1.5;
+}
 .map-section-title {
   font-size: 12px;
   font-weight: 700;
@@ -1846,7 +1867,7 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
     <!-- Planner Panel -->
     <div class="panel" id="plan-panel" style="border-right:none;">
       <div class="panel-header">
-        <span>🎯 畢業路徑規劃</span>
+        <span>🎯 路徑規劃 (Path Planner)</span>
         <button class="info-icon" id="plan-info-btn" title="說明">ⓘ</button>
       </div>
       <div class="panel-body">
@@ -2253,6 +2274,38 @@ function clearGraphHighlight() {
     .forEach(el => el.classList.remove('highlight', 'related'));
 }
 
+/* Ghost preview: simulate "what would happen if I owned this ing".
+   Used by Recommender card hover and Path Planner gap-badge hover to make
+   the recommendation's effect VISIBLE on the Map. */
+function ghostPreviewIng(idx) {
+  if (idx == null) return;
+  // Tag the ing node
+  document.querySelector(`.g-ing-node[data-iidx="${idx}"]`)?.classList.add('previewing');
+
+  // Highlight edges leaving from this ing
+  document.querySelectorAll(`.g-edge[data-iidx="${idx}"]`).forEach(el => {
+    el.classList.add('preview');
+  });
+
+  // For each recipe, see what state it WOULD have if this ing were owned
+  document.querySelectorAll('.g-recipe-node').forEach(el => {
+    const ings = (el.dataset.ings || '').split(',').map(Number);
+    if (!ings.includes(idx)) return;          // unaffected
+    if (el.classList.contains('cookable')) return; // already cookable, no change
+
+    const willHave = ings.filter(i => S.owned.has(i) || i === idx);
+    const missing = ings.length - willHave.length;
+
+    if (missing === 0)                                   el.classList.add('would-cook');
+    else if (missing <= 2 && willHave.length > 0)        el.classList.add('would-near');
+  });
+}
+
+function clearGhostPreview() {
+  document.querySelectorAll('.g-ing-node.previewing, .g-edge.preview, .g-recipe-node.would-cook, .g-recipe-node.would-near')
+    .forEach(el => el.classList.remove('previewing', 'preview', 'would-cook', 'would-near'));
+}
+
 // Keep legacy highlight names pointing to graph versions (for rec card + plan badge hover)
 function highlightIngredient(idx) { highlightIngOnGraph(idx); }
 function highlightRecipe(nodeEl, ingIdxs) {
@@ -2420,8 +2473,14 @@ function buildRecommender() {
       </div>
       ${recipeOrProgress}`;
 
-    card.addEventListener('mouseenter', () => highlightIngredient(c.idx));
-    card.addEventListener('mouseleave', () => clearHighlight());
+    card.addEventListener('mouseenter', () => {
+      highlightIngredient(c.idx);
+      ghostPreviewIng(c.idx);  // Map shows what would unlock if you took this ing
+    });
+    card.addEventListener('mouseleave', () => {
+      clearHighlight();
+      clearGhostPreview();
+    });
     card.addEventListener('click', () => openPopover());
     recList.appendChild(card);
   });
@@ -2477,8 +2536,14 @@ function buildPlanner() {
     badge.innerHTML = `${ingIconHTML(ing, 14)} ${ing.name}`;
     badge.style.cursor = 'pointer';
     badge.addEventListener('click', () => openPopover());
-    badge.addEventListener('mouseenter', () => highlightIngredient(i));
-    badge.addEventListener('mouseleave', () => clearHighlight());
+    badge.addEventListener('mouseenter', () => {
+      highlightIngredient(i);
+      if (!S.owned.has(i)) ghostPreviewIng(i);  // only preview missing ings
+    });
+    badge.addEventListener('mouseleave', () => {
+      clearHighlight();
+      clearGhostPreview();
+    });
     badgesEl.appendChild(badge);
   }
 }
