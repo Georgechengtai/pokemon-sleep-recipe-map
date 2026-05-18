@@ -1406,8 +1406,90 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
   flex-shrink: 0;
 }
 
-/* ── Tab 3 Map (bipartite state visualization) ───────────────── */
-#explore-map { padding: 12px 14px; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+/* ── Tab 3 Map: 2D arc-diagram SVG graph ─────────────────────── */
+#explore-map {
+  padding: 8px;
+  overflow: hidden;
+  flex: 1;
+  display: flex;
+}
+#explore-graph {
+  width: 100%;
+  height: 100%;
+  min-height: 420px;
+  background: var(--bg);
+  border-radius: 6px;
+}
+/* Ing nodes (top row) */
+.g-ing-node { cursor: pointer; }
+.g-ing-node .g-ing-circle {
+  fill: var(--surface2);
+  stroke: var(--border);
+  stroke-width: 1.5;
+  transition: stroke 0.15s, fill 0.15s;
+}
+.g-ing-node.owned .g-ing-circle    { fill: rgba(102,187,106,0.25); stroke: var(--owned); stroke-width: 2; }
+.g-ing-node.excluded .g-ing-circle { fill: rgba(240,98,146,0.18);  stroke: var(--dessert); }
+.g-ing-node.excluded .g-ing-img    { opacity: 0.5; filter: grayscale(1); }
+.g-ing-node.highlight .g-ing-circle { stroke: var(--accent-bright); stroke-width: 3; }
+.g-ing-node .g-ing-label {
+  font-size: 9.5px;
+  fill: var(--text-muted);
+  text-anchor: middle;
+  pointer-events: none;
+}
+.g-ing-node.owned    .g-ing-label { fill: var(--owned); font-weight: 700; }
+.g-ing-node.excluded .g-ing-label { fill: var(--dessert); text-decoration: line-through; }
+
+/* Recipe nodes (3 rows below) */
+.g-recipe-node { cursor: pointer; }
+.g-recipe-node .g-rec-circle {
+  stroke-width: 1.2;
+  transition: r 0.15s, stroke-width 0.15s;
+}
+.g-recipe-node.curry   .g-rec-circle { fill: var(--curry);   stroke: var(--curry); }
+.g-recipe-node.salad   .g-rec-circle { fill: var(--salad);   stroke: var(--salad); }
+.g-recipe-node.dessert .g-rec-circle { fill: var(--dessert); stroke: var(--dessert); }
+.g-recipe-node .g-rec-circle { opacity: 0.4; }
+.g-recipe-node.cookable .g-rec-circle { opacity: 1; stroke: #fff; stroke-width: 2; }
+.g-recipe-node.near-cookable .g-rec-circle { opacity: 0.85; stroke-width: 2.5; }
+.g-recipe-node.hidden-by-exclude { display: none; }
+.g-recipe-node.highlight .g-rec-circle { opacity: 1; r: 9; stroke-width: 3; }
+.g-recipe-node .g-rec-ring {
+  fill: none;
+  stroke: var(--accent-bright);
+  stroke-width: 0;
+  opacity: 0;
+  transition: stroke-width 0.15s, opacity 0.15s;
+}
+.g-recipe-node.highlight .g-rec-ring { stroke-width: 2; opacity: 0.8; }
+
+/* Type-row separators (subtle) */
+.g-type-band {
+  fill: var(--surface);
+  opacity: 0.5;
+}
+.g-type-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-anchor: start;
+}
+.g-type-label.curry   { fill: var(--curry); }
+.g-type-label.salad   { fill: var(--salad); }
+.g-type-label.dessert { fill: var(--dessert); }
+
+/* Edges */
+.g-edge {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s;
+}
+.g-edge.related { opacity: 0.55; stroke-width: 1.5; }
+.g-edge.owned-perm { opacity: 0.18; stroke: var(--owned); }
+.g-edge.cookable-perm { opacity: 0.35; stroke: var(--owned); stroke-width: 1.5; }
 .map-section-title {
   font-size: 12px;
   font-weight: 700;
@@ -1710,6 +1792,9 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
         <button data-order="occurrence">出現次數</button>
       </div>
     </div>
+    <label class="browser-toggle" style="font-size:10.5px;margin-left:8px;">
+      <input type="checkbox" id="show-excluded-toggle"> 顯示已排除食材
+    </label>
     <span id="stats-summary" style="font-size:11px;color:var(--text-muted);margin-left:auto;"></span>
   </div>
   <div id="stats-scroll">
@@ -1728,21 +1813,14 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
 <div class="tab-content" id="tab-explore">
   <div id="main">
 
-  <!-- Map Panel: bipartite visualization of state -->
+  <!-- Map Panel: 2D arc-diagram graph (ings top, recipes 3 rows by type, edges on-demand) -->
   <div class="panel" id="map-panel">
     <div class="panel-header">
       <span>🗺 探索地圖</span>
-      <span class="panel-header-note" id="map-state-summary"></span>
+      <span class="panel-header-note" id="map-state-summary">hover 食材 / 料理 看連線</span>
     </div>
     <div class="panel-body" id="explore-map">
-      <section class="map-section">
-        <h4 class="map-section-title">食材 <span class="dim">(hover 看相關料理)</span></h4>
-        <div id="map-ing-row"></div>
-      </section>
-      <section class="map-section map-recipes-wrap">
-        <h4 class="map-section-title">料理 <span class="dim" id="map-recipes-count">(hover 看所需食材)</span></h4>
-        <div id="map-recipe-groups"></div>
-      </section>
+      <svg id="explore-graph" preserveAspectRatio="xMidYMid meet"></svg>
     </div>
   </div>
 
@@ -1870,6 +1948,7 @@ const S = {
   statsTypeFilter: 'all',    // Tab 2 type axis: 'all' | 'curry' | 'salad' | 'dessert'
   statsOrder: 'id',          // Tab 2 order axis: 'id' | 'occurrence'
   statsView: 'table',        // Tab 2 sub-tab: 'table' | 'matrix'
+  showExcluded: false,       // Tab 2: include excluded ings in stats & matrix
 };
 
 const TYPE_META = {
@@ -1979,111 +2058,209 @@ function buildMatrix() {
 
 function buildExploreMap() {
   if (!S.data) return;
+  const svg = document.getElementById('explore-graph');
+  if (!svg) return;
   const { ingredients, recipes } = S.data;
   const ingByName = Object.fromEntries(ingredients.map((x, i) => [x.name, i]));
 
-  // Active recipes: tier filter (excluded ings handled per-recipe via .hidden-by-exclude)
-  const activeRecipes = recipes.filter(r =>
+  // ── Filter ─────────────────────────────────────────────────────
+  const tierFiltered = recipes.filter(r =>
     !r.is_placeholder && r.tier_bonus >= S.minTier
   );
 
-  // 1) Ingredient row — 19 nodes, in-game ID order
-  const ingRow = document.getElementById('map-ing-row');
-  if (!ingRow) return;
-  ingRow.innerHTML = '';
-  ingredients.forEach((ing, i) => {
-    const node = document.createElement('div');
-    let cls = 'map-ing-node';
-    if (S.owned.has(i))    cls += ' owned';
-    if (S.excluded.has(i)) cls += ' excluded';
-    node.className = cls;
-    node.dataset.iidx = i;
-    node.innerHTML = `<img src="assets/icons/ingredients/${ing.key}.png" alt=""><span>${ing.name}</span>`;
-    node.addEventListener('mouseenter', () => highlightIngredient(i));
-    node.addEventListener('mouseleave', () => clearHighlight());
-    node.addEventListener('click', () => openPopover());
-    ingRow.appendChild(node);
-  });
+  // ── Layout ─────────────────────────────────────────────────────
+  const W = 1400, H = 460;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
 
-  // 2) Recipe nodes grouped by type
-  const groups = document.getElementById('map-recipe-groups');
-  if (!groups) return;
-  groups.innerHTML = '';
+  // 19 ing positions: top row
+  const ingY = 36;
+  const ingMargin = 60;
+  const ingStep = (W - 2 * ingMargin) / 18;
+  const ingPos = ingredients.map((_, i) => ({ x: ingMargin + i * ingStep, y: ingY }));
+
+  // Recipes: 3 rows (curry / salad / dessert), centred per row
   const typeOrder = ['curry', 'salad', 'dessert'];
   const typeLabels = { curry: '🍛 咖哩、濃湯', salad: '🥗 沙拉', dessert: '🧁 點心、飲料' };
+  const rowY = { curry: 180, salad: 280, dessert: 380 };
   const grouped = Object.fromEntries(typeOrder.map(t => [t, []]));
-  for (const r of activeRecipes) grouped[r.type_en].push(r);
+  for (const r of tierFiltered) grouped[r.type_en].push(r);
+  for (const t of typeOrder) grouped[t].sort((a, b) => b.score_final - a.score_final);
 
+  const recPos = {}; // r.name_en → { x, y, type }
   for (const t of typeOrder) {
-    const list = grouped[t].sort((a, b) => b.score_final - a.score_final);
-    const groupEl = document.createElement('div');
-    groupEl.className = 'map-recipe-group';
-    groupEl.innerHTML = `
-      <div class="map-recipe-group-header ${t}">${typeLabels[t]} <span style="font-weight:400;opacity:0.7">(${list.length})</span></div>
-      <div class="map-recipe-list"></div>
-    `;
-    const listEl = groupEl.querySelector('.map-recipe-list');
-    for (const r of list) {
-      const node = document.createElement('div');
+    const list = grouped[t];
+    const recStep = Math.min(28, (W - 100) / Math.max(list.length, 1));
+    const totalW = recStep * (list.length - 1);
+    const startX = (W - totalW) / 2;
+    list.forEach((r, i) => {
+      recPos[r.name_en] = { x: startX + i * recStep, y: rowY[t], type: t, recipe: r };
+    });
+  }
+
+  // ── Render ─────────────────────────────────────────────────────
+  const ns = 'http://www.w3.org/2000/svg';
+  svg.innerHTML = '';
+
+  // Edge layer (drawn first, below nodes)
+  const edgeLayer = document.createElementNS(ns, 'g');
+  edgeLayer.setAttribute('id', 'g-edges');
+  svg.appendChild(edgeLayer);
+
+  // Pre-build edges: one per (ing × recipe-using-it) pair
+  const edges = []; // { ingIdx, recId, el }
+  for (const r of tierFiltered) {
+    const pos = recPos[r.name_en];
+    if (!pos) continue;
+    for (const ing of r.ingredients) {
+      const iIdx = ingByName[ing.name];
+      const from = ingPos[iIdx];
+      const to = pos;
+      const path = document.createElementNS(ns, 'path');
+      const midY = (from.y + to.y) / 2;
+      path.setAttribute('d', `M${from.x},${from.y + 18} C${from.x},${midY} ${to.x},${midY} ${to.x},${to.y - 7}`);
+      path.classList.add('g-edge');
+      path.dataset.iidx = iIdx;
+      path.dataset.rid = r.name_en;
+      // Permanent visibility for owned/cookable
+      if (S.owned.has(iIdx) && !r.ingredients.some(x => S.excluded.has(ingByName[x.name]))) {
+        const allOwned = r.ingredients.every(x => S.owned.has(ingByName[x.name]));
+        path.classList.add(allOwned ? 'cookable-perm' : 'owned-perm');
+      }
+      edgeLayer.appendChild(path);
+      edges.push({ iIdx, recId: r.name_en, el: path });
+    }
+  }
+
+  // Type-row labels
+  for (const t of typeOrder) {
+    const label = document.createElementNS(ns, 'text');
+    label.setAttribute('x', 12);
+    label.setAttribute('y', rowY[t] + 4);
+    label.setAttribute('class', `g-type-label ${t}`);
+    label.textContent = `${typeLabels[t]} (${grouped[t].length})`;
+    svg.appendChild(label);
+  }
+
+  // Ing nodes
+  ingredients.forEach((ing, i) => {
+    const pos = ingPos[i];
+    const g = document.createElementNS(ns, 'g');
+    let cls = 'g-ing-node';
+    if (S.owned.has(i))    cls += ' owned';
+    if (S.excluded.has(i)) cls += ' excluded';
+    g.setAttribute('class', cls);
+    g.dataset.iidx = i;
+    g.setAttribute('transform', `translate(${pos.x},${pos.y})`);
+
+    const circle = document.createElementNS(ns, 'circle');
+    circle.setAttribute('class', 'g-ing-circle');
+    circle.setAttribute('r', 16);
+    g.appendChild(circle);
+
+    const img = document.createElementNS(ns, 'image');
+    img.setAttribute('class', 'g-ing-img');
+    img.setAttributeNS('http://www.w3.org/1999/xlink', 'href', `assets/icons/ingredients/${ing.key}.png`);
+    img.setAttribute('href', `assets/icons/ingredients/${ing.key}.png`);
+    img.setAttribute('x', -12); img.setAttribute('y', -12);
+    img.setAttribute('width', 24); img.setAttribute('height', 24);
+    g.appendChild(img);
+
+    const label = document.createElementNS(ns, 'text');
+    label.setAttribute('class', 'g-ing-label');
+    label.setAttribute('y', 28);
+    label.textContent = ing.name;
+    g.appendChild(label);
+
+    g.addEventListener('mouseenter', () => highlightIngOnGraph(i));
+    g.addEventListener('mouseleave', () => clearGraphHighlight());
+    g.addEventListener('click', () => openPopover());
+    svg.appendChild(g);
+  });
+
+  // Recipe nodes
+  for (const t of typeOrder) {
+    for (const r of grouped[t]) {
+      const pos = recPos[r.name_en];
       const ingIdxs = r.ingredients.map(x => ingByName[x.name]);
-      const missing = ingIdxs.filter(i => !S.owned.has(i));
-      const hasExcluded = ingIdxs.some(i => S.excluded.has(i));
-      let cls = `map-recipe-node ${t}`;
+      const hasExcluded = ingIdxs.some(idx => S.excluded.has(idx));
+      const missing = ingIdxs.filter(idx => !S.owned.has(idx));
+      let cls = `g-recipe-node ${t}`;
       if (hasExcluded) cls += ' hidden-by-exclude';
       else if (missing.length === 0) cls += ' cookable';
       else if (missing.length <= 2 && ingIdxs.length - missing.length > 0) cls += ' near-cookable';
-      node.className = cls;
-      node.dataset.ridx = r.name_en;
-      node.dataset.ings = ingIdxs.join(',');
-      const nearBadge = (missing.length > 0 && missing.length <= 2 && ingIdxs.length - missing.length > 0)
-        ? `<span class="near-badge">差${missing.length}</span>` : '';
-      node.innerHTML = `${recipeIconHTML(r, 18)}<span class="map-rname">${r.name}</span>${nearBadge}`;
-      node.addEventListener('mouseenter', e => {
-        highlightRecipe(node, ingIdxs);
+
+      const g = document.createElementNS(ns, 'g');
+      g.setAttribute('class', cls);
+      g.dataset.rid = r.name_en;
+      g.dataset.ings = ingIdxs.join(',');
+      g.setAttribute('transform', `translate(${pos.x},${pos.y})`);
+
+      const ring = document.createElementNS(ns, 'circle');
+      ring.setAttribute('class', 'g-rec-ring');
+      ring.setAttribute('r', 10);
+      g.appendChild(ring);
+
+      const c = document.createElementNS(ns, 'circle');
+      c.setAttribute('class', 'g-rec-circle');
+      c.setAttribute('r', 6);
+      g.appendChild(c);
+
+      g.addEventListener('mouseenter', e => {
+        highlightRecipeOnGraph(r.name_en, ingIdxs);
         showTooltip(e, r.name, r.type,
           `<b>+${(r.tier_bonus*100).toFixed(0)}%</b> · ${r.score_final.toLocaleString()} 分<br>` +
           r.ingredients.map(i => `${i.name}×${i.count}`).join('、'));
       });
-      node.addEventListener('mouseleave', () => { clearHighlight(); hideTooltip(); });
-      listEl.appendChild(node);
+      g.addEventListener('mouseleave', () => { clearGraphHighlight(); hideTooltip(); });
+      svg.appendChild(g);
     }
-    groups.appendChild(groupEl);
   }
 
   // Summary
   const summary = document.getElementById('map-state-summary');
   if (summary) {
-    const cookable = document.querySelectorAll('.map-recipe-node.cookable').length;
-    const near = document.querySelectorAll('.map-recipe-node.near-cookable').length;
-    summary.textContent = `可煮 ${cookable} · 差 1-2 種 ${near}`;
+    const cookable = document.querySelectorAll('.g-recipe-node.cookable').length;
+    const near = document.querySelectorAll('.g-recipe-node.near-cookable').length;
+    summary.textContent = `可煮 ${cookable} · 差 1-2 種 ${near} · hover 看連線`;
   }
 }
 
-/* ── Linked highlighting ───────────────────────────────────────── */
-function highlightIngredient(idx) {
-  S.highlight = { type: 'ingredient', idx };
-  // Highlight related recipes (those using this ing) in the Map
-  document.querySelectorAll('.map-recipe-node').forEach(el => {
-    const ings = (el.dataset.ings || '').split(',').map(Number);
-    el.classList.toggle('related', ings.includes(idx));
+function highlightIngOnGraph(idx) {
+  document.querySelectorAll('.g-ing-node').forEach(el => {
+    el.classList.toggle('highlight', parseInt(el.dataset.iidx) === idx);
   });
+  document.querySelectorAll('.g-recipe-node').forEach(el => {
+    const ings = (el.dataset.ings || '').split(',').map(Number);
+    el.classList.toggle('highlight', ings.includes(idx));
+  });
+  document.querySelectorAll('.g-edge').forEach(el => {
+    el.classList.toggle('related', parseInt(el.dataset.iidx) === idx);
+  });
+}
+function highlightRecipeOnGraph(rid, ingIdxs) {
+  document.querySelectorAll('.g-recipe-node').forEach(el => {
+    el.classList.toggle('highlight', el.dataset.rid === rid);
+  });
+  document.querySelectorAll('.g-ing-node').forEach(el => {
+    el.classList.toggle('highlight', ingIdxs.includes(parseInt(el.dataset.iidx)));
+  });
+  document.querySelectorAll('.g-edge').forEach(el => {
+    el.classList.toggle('related', el.dataset.rid === rid);
+  });
+}
+function clearGraphHighlight() {
+  document.querySelectorAll('.g-ing-node.highlight, .g-recipe-node.highlight, .g-edge.related')
+    .forEach(el => el.classList.remove('highlight', 'related'));
 }
 
+// Keep legacy highlight names pointing to graph versions (for rec card + plan badge hover)
+function highlightIngredient(idx) { highlightIngOnGraph(idx); }
 function highlightRecipe(nodeEl, ingIdxs) {
-  S.highlight = { type: 'recipe', ings: ingIdxs };
-  // Highlight the recipe's required ings in the Map
-  document.querySelectorAll('.map-ing-node').forEach(el => {
-    el.classList.toggle('related', ingIdxs.includes(parseInt(el.dataset.iidx)));
-  });
+  if (Array.isArray(ingIdxs)) highlightRecipeOnGraph(nodeEl?.dataset?.rid || '', ingIdxs);
 }
+function clearHighlight() { clearGraphHighlight(); }
 
 function highlightBoth(i, j) { /* legacy no-op */ }
-
-function clearHighlight() {
-  S.highlight = null;
-  document.querySelectorAll('.map-ing-node.related, .map-recipe-node.related')
-    .forEach(el => el.classList.remove('related'));
-}
 
 /* ── Owned / Picker ─────────────────────────────────────────────── */
 // Cycle: neutral → owned → excluded → neutral
@@ -2348,6 +2525,7 @@ function saveHash() {
   if (S.statsView !== 'table') params.set('view', S.statsView);
   if (S.statsTypeFilter !== 'all') params.set('typeF', S.statsTypeFilter);
   if (S.statsOrder !== 'id') params.set('order', S.statsOrder);
+  if (S.showExcluded) params.set('showExcl', '1');
   const hash = params.toString();
   history.replaceState(null, '', hash ? '#' + hash : window.location.pathname);
 }
@@ -2369,6 +2547,7 @@ function loadHash() {
   if (params.get('view'))       S.statsView = params.get('view');
   if (params.get('typeF'))      S.statsTypeFilter = params.get('typeF');
   if (params.get('order'))      S.statsOrder = params.get('order');
+  if (params.get('showExcl'))   S.showExcluded = params.get('showExcl') === '1';
 }
 
 /* ── Tab routing ─────────────────────────────────────────────────── */
@@ -2681,7 +2860,7 @@ function buildStats() {
   );
 
   // Per-ingredient stats
-  const stats = S.data.ingredients.map((ing, i) => {
+  const allStats = S.data.ingredients.map((ing, i) => {
     const usedIn = activeRecipes.filter(r => r.ingredients.some(x => x.name === ing.name));
     const byType = { curry: 0, salad: 0, dessert: 0 };
     usedIn.forEach(r => byType[r.type_en]++);
@@ -2698,6 +2877,9 @@ function buildStats() {
       excluded: S.excluded.has(i),
     };
   });
+
+  // Hide excluded ings unless toggle is on
+  const stats = S.showExcluded ? allStats : allStats.filter(s => !s.excluded);
 
   // 2-axis sort: typeFilter selects which metric, order selects ID vs occurrence
   const typeF = S.statsTypeFilter || 'all';
@@ -2786,7 +2968,7 @@ function buildStatsMatrix(sortedStats, activeRecipes) {
   const maxCount = Math.max(1, ...allCounts);
 
   // Column order = stats-list sort order (sortedStats).
-  // Excluded ings still appear (faded icon) so user knows what's been omitted.
+  // sortedStats has already filtered out excluded ings unless S.showExcluded.
   const sortedIngs = sortedStats.map(s => s.ing);
   const ingNameSet = sortedIngs.map(ing => ing.name);
 
@@ -2915,6 +3097,16 @@ function initStatsControls() {
       saveHash();
     });
   });
+  // Show-excluded toggle
+  const showExcl = document.getElementById('show-excluded-toggle');
+  if (showExcl) {
+    showExcl.checked = S.showExcluded;
+    showExcl.addEventListener('change', e => {
+      S.showExcluded = e.target.checked;
+      buildStats();
+      saveHash();
+    });
+  }
   // Sub-tab toggle (table / matrix)
   document.querySelectorAll('.sub-tab-btn').forEach(btn => {
     btn.addEventListener('click', () => switchStatsView(btn.dataset.view));
