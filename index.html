@@ -902,37 +902,51 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 8px;
+  padding: 10px;
+  display: flex;
+  justify-content: center;   /* centre matrix when narrower than wrapper */
 }
 #stats-matrix {
-  display: grid;
-  grid-template-columns: auto auto auto auto;
-  gap: 12px;
-  align-items: start;
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  width: max-content;        /* hug content */
 }
 .sm-col-group {
   display: flex;
   flex-direction: column;
   min-width: 0;
 }
-.sm-col-group.label-col { position: sticky; left: 8px; z-index: 2; background: var(--surface); padding-right: 6px; }
+.sm-col-group.label-col {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--surface);
+  padding-right: 8px;
+  box-shadow: 2px 0 4px rgba(0,0,0,0.06);
+}
 .sm-group-header {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
-  padding: 4px 6px;
-  margin-bottom: 4px;
+  padding: 5px 8px;
+  margin-bottom: 6px;
   border-radius: 4px;
   text-align: center;
   white-space: nowrap;
 }
-.sm-group-header.label  { background: transparent; color: var(--text-muted); text-align: left; padding-left: 4px; }
-.sm-group-header.curry  { background: rgba(255,138,101,0.15); color: var(--curry); }
-.sm-group-header.salad  { background: rgba(129,199,132,0.15); color: var(--salad); }
-.sm-group-header.dessert { background: rgba(240,98,146,0.15); color: var(--dessert); }
-.sm-col-headers { display: flex; gap: 1px; min-height: 80px; }
+.sm-group-header.label  { background: transparent; color: var(--text-muted); text-align: left; padding-left: 4px; font-size: 11px; }
+.sm-group-header.curry  { background: rgba(255,138,101,0.18); color: var(--curry); }
+.sm-group-header.salad  { background: rgba(129,199,132,0.20); color: var(--salad); }
+.sm-group-header.dessert { background: rgba(240,98,146,0.18); color: var(--dessert); }
+.sm-col-headers {
+  display: flex;
+  gap: 2px;
+  min-height: 110px;
+  margin-bottom: 4px;
+}
 .sm-col-header {
-  width: 18px;
+  width: 22px;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
@@ -942,48 +956,63 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
 .sm-col-header .col-stripe {
   width: 100%;
   height: 3px;
-  margin-bottom: 2px;
-  opacity: 0.6;
+  margin-bottom: 3px;
+  opacity: 0.7;
+  border-radius: 1px;
 }
 .sm-col-header.curry .col-stripe { background: var(--curry); }
 .sm-col-header.salad .col-stripe { background: var(--salad); }
 .sm-col-header.dessert .col-stripe { background: var(--dessert); }
-.sm-col-header span {
+.sm-col-header > span {
   writing-mode: vertical-rl;
   text-orientation: upright;
-  font-size: 8.5px;
-  color: var(--text-muted);
-  letter-spacing: -1px;
-  max-height: 68px;
+  font-size: 11px;
+  color: var(--text);
+  letter-spacing: 0;
+  max-height: 96px;
   overflow: hidden;
   white-space: nowrap;
+  line-height: 1.05;
 }
 
-.sm-rows { display: flex; flex-direction: column; gap: 1px; }
-.sm-row { display: flex; gap: 1px; align-items: center; }
+.sm-rows { display: flex; flex-direction: column; gap: 2px; }
+.sm-row { display: flex; gap: 2px; align-items: center; min-height: 22px; }
 
 .sm-label-row {
   display: flex;
   align-items: center;
-  gap: 6px;
-  height: 18px;
-  font-size: 11px;
+  gap: 7px;
+  height: 22px;
+  font-size: 12px;
   color: var(--text);
-  padding-right: 6px;
+  font-weight: 500;
+  padding-right: 8px;
+  white-space: nowrap;
 }
-.sm-label-row img { width: 16px; height: 16px; }
+.sm-label-row img { width: 18px; height: 18px; flex-shrink: 0; }
+.sm-label-row.excluded { opacity: 0.4; text-decoration: line-through; }
 
 .sm-cell {
-  width: 18px;
-  height: 18px;
-  border-radius: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 3px;
   cursor: default;
   flex-shrink: 0;
   transition: transform 0.1s;
 }
-.sm-cell:hover { transform: scale(1.3); z-index: 1; position: relative; }
-.sm-cell.empty { background: var(--surface2); opacity: 0.5; }
-/* Cell intensity scales 0.35–1.0 with ingredient count in that recipe */
+.sm-cell:hover { transform: scale(1.25); z-index: 1; position: relative; }
+.sm-cell.empty { background: var(--surface2); opacity: 0.4; }
+
+.sm-empty-group {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+  padding: 8px;
+  min-height: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .stat-row {
   display: grid;
   grid-template-columns: 170px 1.1fr 1.4fr;
@@ -2184,10 +2213,13 @@ function buildStats() {
 
   const ingByName = Object.fromEntries(S.data.ingredients.map((x, i) => [x.name, i]));
 
-  // activeRecipes: pass tier filter; exclusion of ings is a per-row visual decoration
-  //   (the row's stats still reflect the actual underlying data for that ing)
+  // activeRecipes: filtered by tier AND excludes recipes containing any excluded ing.
+  // Wallace's spec: stats should reflect "the filtered set" (by % and by excluded ing).
+  // Excluded ings end up with total=0 (faded + sorted to bottom).
   const activeRecipes = S.data.recipes.filter(r =>
-    !r.is_placeholder && r.tier_bonus >= S.minTier
+    !r.is_placeholder &&
+    r.tier_bonus >= S.minTier &&
+    !r.ingredients.some(ing => S.excluded.has(ingByName[ing.name]))
   );
 
   // Per-ingredient stats
@@ -2209,7 +2241,7 @@ function buildStats() {
     };
   });
 
-  // Sort
+  // Sort: primary by sortBy, then excluded always last
   const sortBy = S.statsSort || 'total';
   if (sortBy === 'id') {
     stats.sort((a, b) => a.idx - b.idx);
@@ -2218,6 +2250,7 @@ function buildStats() {
   } else {
     stats.sort((a, b) => b.byType[sortBy] - a.byType[sortBy] || b.total - a.total);
   }
+  stats.sort((a, b) => (a.excluded ? 1 : 0) - (b.excluded ? 1 : 0));
 
   // Bar scale: max within each type
   const maxByType = {
@@ -2269,32 +2302,27 @@ function buildStats() {
 
   if (summary) summary.textContent = `${activeRecipes.length} 道料理`;
 
-  buildStatsMatrix(activeRecipes);
+  // Matrix uses the SAME sorted ingredient order as stats list,
+  // so visual scanning between the two views is consistent.
+  buildStatsMatrix(stats, activeRecipes);
 }
 
-/* Tab 2: matrix heatmap — grouped by recipe type, sticky ing column */
-function buildStatsMatrix(activeRecipes) {
+/* Tab 2: matrix heatmap — grouped by recipe type, sticky ing column.
+   - rows sorted to match stats list (same S.statsSort)
+   - cells 22px / headers 11px upright for 100% zoom readability
+   - wrapper fits content (no empty space) */
+function buildStatsMatrix(sortedStats, activeRecipes) {
   const root = document.getElementById('stats-matrix');
   if (!root) return;
   root.innerHTML = '';
 
-  // Filter further: hide recipes containing excluded ings
-  const ingByName = Object.fromEntries(S.data.ingredients.map((x, i) => [x.name, i]));
-  const recipes = activeRecipes.filter(r =>
-    !r.ingredients.some(ing => S.excluded.has(ingByName[ing.name]))
-  );
-
-  // Ingredient rows: in-game ID order
-  const ings = S.data.ingredients;
-
   const typeOrder = ['curry', 'salad', 'dessert'];
   const typeLabels = { curry: '咖哩、濃湯', salad: '沙拉', dessert: '點心、飲料' };
   const grouped = Object.fromEntries(typeOrder.map(t => [t, []]));
-  for (const r of recipes) grouped[r.type_en].push(r);
+  for (const r of activeRecipes) grouped[r.type_en].push(r);
   for (const t of typeOrder) grouped[t].sort((a, b) => b.score_final - a.score_final);
 
-  // Max count for cell intensity scaling
-  const allCounts = recipes.flatMap(r => r.ingredients.map(i => i.count));
+  const allCounts = activeRecipes.flatMap(r => r.ingredients.map(i => i.count));
   const maxCount = Math.max(1, ...allCounts);
 
   // 1) Label column (sticky)
@@ -2304,10 +2332,10 @@ function buildStatsMatrix(activeRecipes) {
     <div class="sm-group-header label">食材</div>
     <div class="sm-col-headers"></div>
     <div class="sm-rows">
-      ${ings.map(ing => `
-        <div class="sm-label-row${S.excluded.has(ingByName[ing.name]) ? ' excluded' : ''}">
-          <img src="assets/icons/ingredients/${ing.key}.png" alt="">
-          <span>${ing.name}</span>
+      ${sortedStats.map(s => `
+        <div class="sm-label-row${s.excluded ? ' excluded' : ''}">
+          <img src="assets/icons/ingredients/${s.ing.key}.png" alt="">
+          <span>${s.ing.name}</span>
         </div>
       `).join('')}
     </div>
@@ -2320,22 +2348,26 @@ function buildStatsMatrix(activeRecipes) {
     const group = document.createElement('div');
     group.className = 'sm-col-group';
 
-    const headersHTML = groupRecipes.map(r => `
-      <div class="sm-col-header ${t}" data-recipe="${r.name_en}" title="${r.name} · ${r.score_final.toLocaleString()} · +${(r.tier_bonus*100).toFixed(0)}%">
-        <span class="col-stripe"></span>
-        <span>${r.name}</span>
-      </div>
-    `).join('');
+    const headersHTML = groupRecipes.length === 0
+      ? '<div class="sm-empty-group">此階級無料理</div>'
+      : groupRecipes.map(r => `
+          <div class="sm-col-header ${t}" data-recipe="${r.name_en}" title="${r.name} · ${r.score_final.toLocaleString()} · +${(r.tier_bonus*100).toFixed(0)}%">
+            <span class="col-stripe"></span>
+            <span>${r.name}</span>
+          </div>
+        `).join('');
 
-    const rowsHTML = ings.map((ing, i) => {
-      const cellsHTML = groupRecipes.map(r => {
-        const used = r.ingredients.find(x => x.name === ing.name);
-        if (!used) return `<div class="sm-cell empty" data-r="${r.name_en}" data-i="${ing.name}"></div>`;
-        const intensity = 0.35 + 0.65 * (used.count / maxCount);
-        return `<div class="sm-cell ${t}" data-r="${r.name_en}" data-i="${ing.name}" data-count="${used.count}" style="background:var(--${t});opacity:${intensity.toFixed(2)}" title="${r.name} · ${ing.name}×${used.count}"></div>`;
-      }).join('');
-      return `<div class="sm-row">${cellsHTML}</div>`;
-    }).join('');
+    const rowsHTML = groupRecipes.length === 0
+      ? sortedStats.map(() => '<div class="sm-row"></div>').join('')
+      : sortedStats.map(s => {
+          const cellsHTML = groupRecipes.map(r => {
+            const used = r.ingredients.find(x => x.name === s.ing.name);
+            if (!used) return `<div class="sm-cell empty"></div>`;
+            const intensity = 0.35 + 0.65 * (used.count / maxCount);
+            return `<div class="sm-cell ${t}" style="background:var(--${t});opacity:${intensity.toFixed(2)}" title="${r.name} · ${s.ing.name}×${used.count}"></div>`;
+          }).join('');
+          return `<div class="sm-row">${cellsHTML}</div>`;
+        }).join('');
 
     group.innerHTML = `
       <div class="sm-group-header ${t}">${typeLabels[t]} (${groupRecipes.length})</div>
