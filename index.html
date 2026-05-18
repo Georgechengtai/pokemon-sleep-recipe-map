@@ -877,11 +877,113 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
   margin-left: 4px;
   cursor: pointer;
 }
-#stats-list {
+#stats-scroll {
   flex: 1;
   overflow-y: auto;
-  padding: 12px 16px 24px;
+  padding: 12px 16px 32px;
 }
+.stats-block { margin-bottom: 20px; }
+.stats-block-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 4px 0 8px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+.stats-block-emoji { font-size: 15px; }
+.stats-block-title { font-size: 13px; font-weight: 700; color: var(--accent-bright); letter-spacing: 0.04em; }
+.stats-block-note { font-size: 10.5px; color: var(--text-muted); }
+#stats-list { display: flex; flex-direction: column; }
+
+/* Matrix heatmap (Tab 2) — refined: grouped columns, sticky ing col, type colours */
+#stats-matrix-wrap {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px;
+}
+#stats-matrix {
+  display: grid;
+  grid-template-columns: auto auto auto auto;
+  gap: 12px;
+  align-items: start;
+}
+.sm-col-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.sm-col-group.label-col { position: sticky; left: 8px; z-index: 2; background: var(--surface); padding-right: 6px; }
+.sm-group-header {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 4px 6px;
+  margin-bottom: 4px;
+  border-radius: 4px;
+  text-align: center;
+  white-space: nowrap;
+}
+.sm-group-header.label  { background: transparent; color: var(--text-muted); text-align: left; padding-left: 4px; }
+.sm-group-header.curry  { background: rgba(255,138,101,0.15); color: var(--curry); }
+.sm-group-header.salad  { background: rgba(129,199,132,0.15); color: var(--salad); }
+.sm-group-header.dessert { background: rgba(240,98,146,0.15); color: var(--dessert); }
+.sm-col-headers { display: flex; gap: 1px; min-height: 80px; }
+.sm-col-header {
+  width: 18px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  padding-bottom: 2px;
+}
+.sm-col-header .col-stripe {
+  width: 100%;
+  height: 3px;
+  margin-bottom: 2px;
+  opacity: 0.6;
+}
+.sm-col-header.curry .col-stripe { background: var(--curry); }
+.sm-col-header.salad .col-stripe { background: var(--salad); }
+.sm-col-header.dessert .col-stripe { background: var(--dessert); }
+.sm-col-header span {
+  writing-mode: vertical-rl;
+  text-orientation: upright;
+  font-size: 8.5px;
+  color: var(--text-muted);
+  letter-spacing: -1px;
+  max-height: 68px;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.sm-rows { display: flex; flex-direction: column; gap: 1px; }
+.sm-row { display: flex; gap: 1px; align-items: center; }
+
+.sm-label-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 18px;
+  font-size: 11px;
+  color: var(--text);
+  padding-right: 6px;
+}
+.sm-label-row img { width: 16px; height: 16px; }
+
+.sm-cell {
+  width: 18px;
+  height: 18px;
+  border-radius: 2px;
+  cursor: default;
+  flex-shrink: 0;
+  transition: transform 0.1s;
+}
+.sm-cell:hover { transform: scale(1.3); z-index: 1; position: relative; }
+.sm-cell.empty { background: var(--surface2); opacity: 0.5; }
+/* Cell intensity scales 0.35–1.0 with ingredient count in that recipe */
 .stat-row {
   display: grid;
   grid-template-columns: 170px 1.1fr 1.4fr;
@@ -1141,7 +1243,27 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
     </label>
     <span id="stats-summary" style="font-size:11px;color:var(--text-muted);"></span>
   </div>
-  <div id="stats-list"></div>
+  <div id="stats-scroll">
+    <section class="stats-block">
+      <header class="stats-block-header">
+        <span class="stats-block-emoji">📊</span>
+        <span class="stats-block-title">每食材出現次數</span>
+        <span class="stats-block-note">按系列拆解 + Top-3 需求</span>
+      </header>
+      <div id="stats-list"></div>
+    </section>
+
+    <section class="stats-block">
+      <header class="stats-block-header">
+        <span class="stats-block-emoji">🗺</span>
+        <span class="stats-block-title">矩陣熱力圖</span>
+        <span class="stats-block-note">19 食材 × N 料理（按系列分組，橫向滾動）</span>
+      </header>
+      <div id="stats-matrix-wrap">
+        <div id="stats-matrix"></div>
+      </div>
+    </section>
+  </div>
 </div>
 
 <!-- Tab 3: Explore (v1 panels — Map / Recommender / Planner with shared state) -->
@@ -2146,6 +2268,82 @@ function buildStats() {
   }
 
   if (summary) summary.textContent = `${activeRecipes.length} 道料理`;
+
+  buildStatsMatrix(activeRecipes);
+}
+
+/* Tab 2: matrix heatmap — grouped by recipe type, sticky ing column */
+function buildStatsMatrix(activeRecipes) {
+  const root = document.getElementById('stats-matrix');
+  if (!root) return;
+  root.innerHTML = '';
+
+  // Filter further: hide recipes containing excluded ings
+  const ingByName = Object.fromEntries(S.data.ingredients.map((x, i) => [x.name, i]));
+  const recipes = activeRecipes.filter(r =>
+    !r.ingredients.some(ing => S.excluded.has(ingByName[ing.name]))
+  );
+
+  // Ingredient rows: in-game ID order
+  const ings = S.data.ingredients;
+
+  const typeOrder = ['curry', 'salad', 'dessert'];
+  const typeLabels = { curry: '咖哩、濃湯', salad: '沙拉', dessert: '點心、飲料' };
+  const grouped = Object.fromEntries(typeOrder.map(t => [t, []]));
+  for (const r of recipes) grouped[r.type_en].push(r);
+  for (const t of typeOrder) grouped[t].sort((a, b) => b.score_final - a.score_final);
+
+  // Max count for cell intensity scaling
+  const allCounts = recipes.flatMap(r => r.ingredients.map(i => i.count));
+  const maxCount = Math.max(1, ...allCounts);
+
+  // 1) Label column (sticky)
+  const labelCol = document.createElement('div');
+  labelCol.className = 'sm-col-group label-col';
+  labelCol.innerHTML = `
+    <div class="sm-group-header label">食材</div>
+    <div class="sm-col-headers"></div>
+    <div class="sm-rows">
+      ${ings.map(ing => `
+        <div class="sm-label-row${S.excluded.has(ingByName[ing.name]) ? ' excluded' : ''}">
+          <img src="assets/icons/ingredients/${ing.key}.png" alt="">
+          <span>${ing.name}</span>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  root.appendChild(labelCol);
+
+  // 2) Type groups
+  for (const t of typeOrder) {
+    const groupRecipes = grouped[t];
+    const group = document.createElement('div');
+    group.className = 'sm-col-group';
+
+    const headersHTML = groupRecipes.map(r => `
+      <div class="sm-col-header ${t}" data-recipe="${r.name_en}" title="${r.name} · ${r.score_final.toLocaleString()} · +${(r.tier_bonus*100).toFixed(0)}%">
+        <span class="col-stripe"></span>
+        <span>${r.name}</span>
+      </div>
+    `).join('');
+
+    const rowsHTML = ings.map((ing, i) => {
+      const cellsHTML = groupRecipes.map(r => {
+        const used = r.ingredients.find(x => x.name === ing.name);
+        if (!used) return `<div class="sm-cell empty" data-r="${r.name_en}" data-i="${ing.name}"></div>`;
+        const intensity = 0.35 + 0.65 * (used.count / maxCount);
+        return `<div class="sm-cell ${t}" data-r="${r.name_en}" data-i="${ing.name}" data-count="${used.count}" style="background:var(--${t});opacity:${intensity.toFixed(2)}" title="${r.name} · ${ing.name}×${used.count}"></div>`;
+      }).join('');
+      return `<div class="sm-row">${cellsHTML}</div>`;
+    }).join('');
+
+    group.innerHTML = `
+      <div class="sm-group-header ${t}">${typeLabels[t]} (${groupRecipes.length})</div>
+      <div class="sm-col-headers">${headersHTML}</div>
+      <div class="sm-rows">${rowsHTML}</div>
+    `;
+    root.appendChild(group);
+  }
 }
 
 /* ── Tab 1 controls ──────────────────────────────────────────────── */
