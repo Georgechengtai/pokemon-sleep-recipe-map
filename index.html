@@ -469,6 +469,234 @@ body {
 .tt-salad { color: var(--salad); }
 .tt-dessert { color: var(--dessert); }
 
+/* ── Global ingredient settings popover ──────────────────────── */
+#popover-backdrop {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 998;
+  display: none;
+}
+#popover-backdrop.visible { display: block; }
+#popover {
+  position: fixed;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.45);
+  z-index: 999;
+  display: none;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: 90vh;
+}
+#popover.visible { display: flex; }
+
+/* Style 1: modal (centred) */
+#popover.style-modal {
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(720px, 92vw);
+  border-radius: 12px;
+}
+
+/* Style 2: drawer (right side slide-in) */
+#popover.style-drawer {
+  top: 0; right: 0; bottom: 0;
+  width: min(440px, 90vw);
+  max-height: 100vh;
+  border-radius: 0;
+  border-left: 1px solid var(--border);
+  border-right: none; border-top: none; border-bottom: none;
+}
+
+/* Style 3: dropdown (anchored to ⚙ button) */
+#popover.style-dropdown {
+  top: 52px; right: 16px;
+  width: min(420px, 92vw);
+  max-height: 80vh;
+  border-radius: 8px;
+}
+/* dropdown has no backdrop dimming */
+#popover.style-dropdown ~ #popover-backdrop { background: transparent; }
+
+#popover-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+#popover-header h2 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent-bright);
+  flex: 1;
+  letter-spacing: 0.03em;
+}
+#popover-style-switch {
+  display: flex;
+  gap: 2px;
+  background: var(--bg);
+  border-radius: 6px;
+  padding: 2px;
+  border: 1px solid var(--border);
+}
+#popover-style-switch button {
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  padding: 3px 8px;
+  font-size: 10.5px;
+  cursor: pointer;
+  border-radius: 4px;
+  font-weight: 600;
+}
+#popover-style-switch button:hover { color: var(--text); }
+#popover-style-switch button.active {
+  background: var(--accent);
+  color: #fff;
+}
+#popover-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 8px;
+}
+#popover-close:hover { color: var(--text); }
+#popover-body {
+  padding: 12px 16px 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+#popover-ing-toolbar, #popover-excluded-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+#popover-reset-btn {
+  background: var(--surface2);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+}
+#popover-reset-btn:hover { color: var(--text); border-color: var(--accent); }
+
+/* ⚙ button + pulse hint */
+#open-settings {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 4px 12px;
+  border-radius: 14px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  position: relative;
+}
+#open-settings:hover { border-color: var(--accent); color: var(--accent-bright); }
+#open-settings.hint-pulse {
+  animation: hintPulse 1.4s ease-in-out infinite;
+  box-shadow: 0 0 0 0 var(--accent);
+}
+#open-settings.hint-pulse::after {
+  content: '';
+  position: absolute;
+  top: 3px; right: 3px;
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--dessert);
+  animation: dotPulse 1.4s ease-in-out infinite;
+}
+@keyframes hintPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(121,134,203,0.5); }
+  50%      { box-shadow: 0 0 0 6px rgba(121,134,203,0); }
+}
+@keyframes dotPulse {
+  0%, 100% { transform: scale(1);   opacity: 1; }
+  50%      { transform: scale(1.4); opacity: 0.6; }
+}
+
+/* ── Read-only ingredient state strip (per tab) ──────────────── */
+.ing-state-strip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+.ing-state-strip-label {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-right: 6px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.ing-state-mini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--surface2);
+  cursor: pointer;
+  position: relative;
+  flex-shrink: 0;
+  opacity: 0.45;
+  transition: opacity 0.15s, transform 0.15s;
+}
+.ing-state-mini:hover { transform: translateY(-1px); opacity: 1; }
+.ing-state-mini img { width: 16px; height: 16px; }
+.ing-state-mini.owned {
+  opacity: 1;
+  background: rgba(102,187,106,0.20);
+  box-shadow: 0 0 0 1.5px var(--owned);
+}
+.ing-state-mini.excluded {
+  opacity: 0.7;
+  background: rgba(240,98,146,0.18);
+  box-shadow: 0 0 0 1.5px var(--dessert);
+}
+.ing-state-mini.excluded img { filter: grayscale(1); }
+.ing-state-mini .mini-order-badge {
+  position: absolute;
+  top: -3px; right: -3px;
+  background: var(--owned);
+  color: #fff;
+  font-size: 8px;
+  font-weight: 700;
+  border-radius: 7px;
+  min-width: 12px;
+  height: 12px;
+  padding: 0 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ing-state-mini.excluded .mini-order-badge { display: none; }
+.ing-state-mini .mini-x {
+  position: absolute;
+  top: -3px; right: -3px;
+  background: var(--dessert);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  border-radius: 50%;
+  width: 12px; height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ing-state-mini:not(.excluded) .mini-x { display: none; }
+
 /* ── Tab bar ──────────────────────────────────────────────────── */
 #tabbar {
   display: flex;
@@ -1181,7 +1409,42 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
   <h1>🍱 寶睡料理食材圖</h1>
   <input id="search-input" type="text" placeholder="食材 / 料理名…">
   <span id="owned-count">已有 0 / 19 食材</span>
+  <button id="open-settings" title="食材設定" class="hint-pulse">⚙ 食材</button>
   <button id="theme-toggle" title="切換明暗主題">🌙</button>
+</div>
+
+<!-- Global ingredient settings popover (3 style modes for A/B testing) -->
+<div id="popover-backdrop"></div>
+<div id="popover" role="dialog" aria-label="食材設定">
+  <header id="popover-header">
+    <h2>⚙ 食材設定（global · 所有 tab 共用）</h2>
+    <div id="popover-style-switch" title="切換顯示樣式（試試三種）">
+      <button data-style="modal">彈窗</button>
+      <button data-style="drawer">側拉</button>
+      <button data-style="dropdown">下拉</button>
+    </div>
+    <button id="popover-close" aria-label="關閉">✕</button>
+  </header>
+  <div id="popover-body">
+    <section class="ctrl-section">
+      <div class="ctrl-header">
+        <span class="ctrl-h-title">① 你的食材庫存</span>
+        <span class="ctrl-h-note">點 1 次 = ✓ 已有・點 2 次 = ✗ 排除・點 3 次 = 取消</span>
+      </div>
+      <div id="popover-ing-toolbar"></div>
+    </section>
+    <section class="ctrl-section" id="popover-excluded-section" hidden>
+      <div class="ctrl-header">
+        <span class="ctrl-h-title">② 已排除食材</span>
+        <span class="ctrl-h-note" id="popover-excluded-note">點食材取消排除</span>
+      </div>
+      <div id="popover-excluded-toolbar"></div>
+    </section>
+    <section class="ctrl-section">
+      <div class="ctrl-header"><span class="ctrl-h-title">③ 重設</span></div>
+      <button id="popover-reset-btn">↻ 重設全部食材狀態</button>
+    </section>
+  </div>
 </div>
 
 <!-- Tab bar -->
@@ -1190,6 +1453,11 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
   <button class="tab-btn" data-tab="stats">📊 統計</button>
   <button class="tab-btn" data-tab="explore">🧭 探索<span class="tab-hint">演算法</span></button>
   <button class="tab-btn" data-tab="animation">🎞 動畫</button>
+</div>
+
+<!-- Global read-only ingredient state strip (click any to open popover) -->
+<div id="ing-state-strip" class="ing-state-strip">
+  <span class="ing-state-strip-label">食材狀態（點開設定）</span>
 </div>
 
 <!-- Tab 1: Recipe Browser (manual exploration) -->
@@ -1216,23 +1484,7 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
 
     <section class="ctrl-section">
       <div class="ctrl-header">
-        <span class="ctrl-h-title">② 你的食材庫存</span>
-        <span class="ctrl-h-note">點 1 次 = ✓ 已有・點 2 次 = ✗ 排除・點 3 次 = 取消</span>
-      </div>
-      <div id="ing-toolbar"></div>
-    </section>
-
-    <section class="ctrl-section" id="excluded-section" hidden>
-      <div class="ctrl-header">
-        <span class="ctrl-h-title">③ 已排除食材</span>
-        <span class="ctrl-h-note" id="excluded-note">點食材取消排除</span>
-      </div>
-      <div id="excluded-toolbar"></div>
-    </section>
-
-    <section class="ctrl-section">
-      <div class="ctrl-header">
-        <span class="ctrl-h-title">④ 顯示選項</span>
+        <span class="ctrl-h-title">② 顯示選項</span>
       </div>
       <div class="ctrl-options">
         <label class="browser-toggle">
@@ -1443,6 +1695,7 @@ const S = {
   hideSuperseded: true,      // default ON — hide lower-score same-type recipes
   hideCardMeta: true,        // default ON — hide tier% badge + score on cards
   statsSort: 'total',        // Tab 2 sort key
+  popoverStyle: 'drawer',    // 'modal' | 'drawer' | 'dropdown' — A/B testing
 };
 
 const TYPE_META = {
@@ -1737,6 +1990,7 @@ function resetIngState() {
 function refreshAll() {
   updateOwnedDisplay();
   buildIngToolbar();
+  buildIngStateStrip();
   buildBrowser();
   buildStats();
   buildRecommender();
@@ -2011,16 +2265,13 @@ function initTabs() {
   switchTab(S.tab);
 }
 
-/* ── Tab 1: Ingredient toolbar (tri-state, in-game ID order) ────── */
+/* ── Global popover: ingredient editor (lives in #popover-ing-toolbar) ─── */
 function buildIngToolbar() {
   if (!S.data) return;
-  const bar = document.getElementById('ing-toolbar');
+  const bar = document.getElementById('popover-ing-toolbar');
   if (!bar) return;
   bar.innerHTML = '';
-  // In-game ID order = ingredients array order (1=粗枝大蔥 … 19=嫩亮酪梨)
-  const order = S.data.ingredients.map((_, i) => i);
-  order.forEach(i => {
-    const ing = S.data.ingredients[i];
+  S.data.ingredients.forEach((ing, i) => {
     const chip = document.createElement('button');
     let cls = 'ing-toolchip';
     if (S.owned.has(i))    cls += ' owned';
@@ -2038,16 +2289,15 @@ function buildIngToolbar() {
 }
 
 function buildExcludedSection() {
-  const section = document.getElementById('excluded-section');
-  const bar = document.getElementById('excluded-toolbar');
-  const note = document.getElementById('excluded-note');
+  const section = document.getElementById('popover-excluded-section');
+  const bar = document.getElementById('popover-excluded-toolbar');
+  const note = document.getElementById('popover-excluded-note');
   if (!section || !bar) return;
 
   if (S.excluded.size === 0) { section.hidden = true; return; }
   section.hidden = false;
   bar.innerHTML = '';
 
-  // Count recipes that would be hidden by exclusions (within current tier filter)
   const hidden = S.data.recipes.filter(r =>
     !r.is_placeholder &&
     r.tier_bonus >= S.minTier &&
@@ -2065,6 +2315,100 @@ function buildExcludedSection() {
     chip.addEventListener('click', () => cycleIngState(i));
     bar.appendChild(chip);
   }
+}
+
+/* ── Read-only ingredient state strip (visible on all tabs) ───── */
+function buildIngStateStrip() {
+  if (!S.data) return;
+  const strip = document.getElementById('ing-state-strip');
+  if (!strip) return;
+  // Remove old mini chips but keep the label
+  strip.querySelectorAll('.ing-state-mini').forEach(el => el.remove());
+
+  S.data.ingredients.forEach((ing, i) => {
+    const mini = document.createElement('button');
+    let cls = 'ing-state-mini';
+    if (S.owned.has(i))    cls += ' owned';
+    if (S.excluded.has(i)) cls += ' excluded';
+    mini.className = cls;
+    mini.dataset.iidx = i;
+    mini.title = ing.name + (S.owned.has(i) ? '（已有）' : S.excluded.has(i) ? '（排除）' : '');
+    const orderIdx = S.ownedOrder.indexOf(i);
+    const orderBadge = orderIdx >= 0 ? `<span class="mini-order-badge">${orderIdx + 1}</span>` : '';
+    const xBadge = S.excluded.has(i) ? '<span class="mini-x">×</span>' : '';
+    mini.innerHTML = `<img src="assets/icons/ingredients/${ing.key}.png" alt="">${orderBadge}${xBadge}`;
+    mini.addEventListener('click', () => openPopover());
+    strip.appendChild(mini);
+  });
+
+  // Update label with counts
+  const label = strip.querySelector('.ing-state-strip-label');
+  if (label) {
+    const parts = [];
+    if (S.owned.size > 0)    parts.push(`已有 ${S.owned.size}`);
+    if (S.excluded.size > 0) parts.push(`排除 ${S.excluded.size}`);
+    if (parts.length === 0)  parts.push('未設定（點開設定 ⚙）');
+    label.textContent = parts.join(' · ');
+  }
+}
+
+/* ── Popover control ──────────────────────────────────────────── */
+function openPopover(style) {
+  const pop = document.getElementById('popover');
+  const backdrop = document.getElementById('popover-backdrop');
+  if (style) S.popoverStyle = style;
+  pop.classList.remove('style-modal', 'style-drawer', 'style-dropdown');
+  pop.classList.add(`style-${S.popoverStyle}`);
+  pop.classList.add('visible');
+  // Dropdown style intentionally has no backdrop dim
+  if (S.popoverStyle !== 'dropdown') backdrop.classList.add('visible');
+  document.querySelectorAll('#popover-style-switch button').forEach(b => {
+    b.classList.toggle('active', b.dataset.style === S.popoverStyle);
+  });
+  document.getElementById('open-settings').classList.remove('hint-pulse');
+  try { localStorage.setItem('pokeSleepHinted', '1'); } catch (e) {}
+}
+
+function closePopover() {
+  document.getElementById('popover').classList.remove('visible');
+  document.getElementById('popover-backdrop').classList.remove('visible');
+}
+
+function setPopoverStyle(style) {
+  closePopover();
+  S.popoverStyle = style;
+  try { localStorage.setItem('pokeSleepPopoverStyle', style); } catch (e) {}
+  openPopover();
+}
+
+function initPopover() {
+  try {
+    const stored = localStorage.getItem('pokeSleepPopoverStyle');
+    if (stored && ['modal', 'drawer', 'dropdown'].includes(stored)) {
+      S.popoverStyle = stored;
+    }
+  } catch (e) {}
+
+  document.getElementById('open-settings').addEventListener('click', () => openPopover());
+  document.getElementById('popover-close').addEventListener('click', closePopover);
+  document.getElementById('popover-backdrop').addEventListener('click', closePopover);
+  document.getElementById('popover-reset-btn').addEventListener('click', resetIngState);
+  document.querySelectorAll('#popover-style-switch button').forEach(btn => {
+    btn.addEventListener('click', () => setPopoverStyle(btn.dataset.style));
+  });
+
+  // First-visit: auto-open after a short pause; pulse keeps until first open
+  let hinted = false;
+  try { hinted = localStorage.getItem('pokeSleepHinted') === '1'; } catch (e) {}
+  if (!hinted) {
+    setTimeout(() => openPopover(), 800);
+  } else {
+    document.getElementById('open-settings').classList.remove('hint-pulse');
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closePopover();
+  });
 }
 
 /* ── Tab 1: Recipe sections by type ──────────────────────────────── */
@@ -2478,8 +2822,10 @@ function init() {
   initCK();
   initBrowserControls();
   initStatsControls();
+  initPopover();
 
   buildIngToolbar();
+  buildIngStateStrip();
   buildBrowser();
   buildStats();
   buildMatrix();
