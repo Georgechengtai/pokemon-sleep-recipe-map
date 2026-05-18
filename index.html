@@ -1123,6 +1123,28 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
   margin-left: 4px;
   cursor: pointer;
 }
+.stat-axis { display: inline-flex; align-items: center; gap: 4px; }
+.stat-axis-label { font-size: 11px; color: var(--text-muted); }
+.btn-group {
+  display: inline-flex;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  padding: 1px;
+  gap: 1px;
+}
+.btn-group button {
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  border-radius: 3px;
+  padding: 3px 9px;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-group button:hover { color: var(--text); }
+.btn-group button.active { background: var(--accent); color: #fff; }
 #stats-scroll {
   flex: 1;
   display: flex;
@@ -1142,7 +1164,14 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
 .stats-block-emoji { font-size: 15px; }
 .stats-block-title { font-size: 13px; font-weight: 700; color: var(--accent-bright); letter-spacing: 0.04em; }
 .stats-block-note { font-size: 10.5px; color: var(--text-muted); }
-#stats-list { display: flex; flex-direction: column; }
+/* Wide-screen multi-column: 2 ing-cards side by side at desktop.
+   minmax 720px so top-3 has enough room (otherwise 3-col squeezes names).
+   Column alignment of heatcells preserved WITHIN each grid column. */
+#stats-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(720px, 1fr));
+  gap: 4px 14px;
+}
 
 /* Transposed matrix (Tab 2 矩陣 sub-view) — rows = recipes grouped by type,
    sticky top header = 19 ing icons, sticky left = recipe icon + name */
@@ -1154,7 +1183,7 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
   flex: 1;
   min-height: 0;
 }
-#stats-matrix { display: block; }
+#stats-matrix { display: block; width: 100%; }
 .tm-grid {
   display: grid;
   position: relative;
@@ -1242,16 +1271,20 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
 /* (Legacy non-transposed matrix CSS removed — replaced by .tm-grid above) */
 .stat-row {
   display: grid;
-  grid-template-columns: 170px 44px 44px 44px 1fr;
-  gap: 10px;
+  grid-template-columns: 150px 50px 50px 50px 1fr;
+  gap: 8px;
   align-items: center;
   background: var(--card-bg);
   border: 1px solid var(--border);
   border-radius: 6px;
-  padding: 4px 12px;
-  margin-bottom: 3px;
+  padding: 4px 10px;
   box-shadow: var(--card-shadow);
   transition: transform 0.15s, box-shadow 0.15s;
+}
+.stat-row.dimtype-curry .heatcell:not(.curry),
+.stat-row.dimtype-salad .heatcell:not(.salad),
+.stat-row.dimtype-dessert .heatcell:not(.dessert) {
+  opacity: 0.25;
 }
 .stat-row:hover {
   transform: translateY(-1px);
@@ -1277,23 +1310,28 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
 }
 .stat-row .ing-total .ing-total-label { color: var(--text-muted); font-weight: 400; margin-right: 3px; }
 
-/* 3-cell heatmap columns — vertical column alignment across rows = 19×3 grid feel */
+/* Heatcells show "咖 N / 沙 N / 點 N" — type labels embedded so no column header needed */
 .heatcell {
-  text-align: center;
-  font-weight: 800;
-  font-size: 12.5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font-weight: 700;
+  font-size: 11.5px;
   border-radius: 4px;
-  padding: 3px 0;
+  padding: 2px 4px;
   color: var(--text);
   border: 1px solid var(--border);
   background: var(--surface2);
 }
+.heatcell .htype { font-size: 9.5px; opacity: 0.7; font-weight: 600; }
+.heatcell .hcount { font-weight: 800; font-size: 13px; }
 .heatcell.curry   { background: color-mix(in srgb, var(--curry)   calc(var(--intensity, 0) * 100%), var(--surface2)); }
 .heatcell.salad   { background: color-mix(in srgb, var(--salad)   calc(var(--intensity, 0) * 100%), var(--surface2)); }
 .heatcell.dessert { background: color-mix(in srgb, var(--dessert) calc(var(--intensity, 0) * 100%), var(--surface2)); }
 .heatcell.zero { opacity: 0.45; color: var(--text-muted); }
 
-/* Column headers row (shows above first stat-row) */
+/* Column headers row (shows above each grid column) */
 .stat-table-header {
   display: grid;
   grid-template-columns: 170px 44px 44px 44px 1fr;
@@ -1305,6 +1343,7 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
   color: var(--text-muted);
   font-weight: 700;
   letter-spacing: 0.05em;
+  grid-column: 1 / -1;
 }
 .stat-table-header .col-label { text-align: center; }
 .stat-table-header .col-label.curry   { color: var(--curry); }
@@ -1344,7 +1383,7 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text);
-  max-width: 88px;
+  max-width: 130px;
 }
 .stat-top3-row .top3-demand {
   color: var(--tier-high);
@@ -1655,15 +1694,22 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
       <button class="sub-tab-btn active" data-view="table">📊 統計表</button>
       <button class="sub-tab-btn" data-view="matrix">🗺 矩陣</button>
     </div>
-    <label style="font-size:11px;color:var(--text-muted);">排序：
-      <select id="stats-sort-select">
-        <option value="id">遊戲 ID 順序</option>
-        <option value="total">全部出現次數</option>
-        <option value="curry">咖哩需求</option>
-        <option value="salad">沙拉需求</option>
-        <option value="dessert">點心需求</option>
-      </select>
-    </label>
+    <div class="stat-axis">
+      <span class="stat-axis-label">類型</span>
+      <div class="btn-group" id="stat-typef">
+        <button data-type="all" class="active">全部</button>
+        <button data-type="curry">咖哩</button>
+        <button data-type="salad">沙拉</button>
+        <button data-type="dessert">點心</button>
+      </div>
+    </div>
+    <div class="stat-axis">
+      <span class="stat-axis-label">排序</span>
+      <div class="btn-group" id="stat-order">
+        <button data-order="id" class="active">ID</button>
+        <button data-order="occurrence">出現次數</button>
+      </div>
+    </div>
     <span id="stats-summary" style="font-size:11px;color:var(--text-muted);margin-left:auto;"></span>
   </div>
   <div id="stats-scroll">
@@ -1820,7 +1866,9 @@ const S = {
   tab: 'browser',
   hideSuperseded: true,      // default ON — hide lower-score same-type recipes
   hideCardMeta: true,        // default ON — hide tier% badge + score on cards
-  statsSort: 'id',           // Tab 2 sort key — default ID so 粗枝大蔥 is first (game order)
+  statsSort: 'id',           // legacy, derived from typeFilter+order
+  statsTypeFilter: 'all',    // Tab 2 type axis: 'all' | 'curry' | 'salad' | 'dessert'
+  statsOrder: 'id',          // Tab 2 order axis: 'id' | 'occurrence'
   statsView: 'table',        // Tab 2 sub-tab: 'table' | 'matrix'
 };
 
@@ -2298,6 +2346,8 @@ function saveHash() {
   if (S.hideSuperseded !== true) params.set('superseded', S.hideSuperseded ? '1' : '0');
   if (S.hideCardMeta !== true) params.set('meta', S.hideCardMeta ? '1' : '0');
   if (S.statsView !== 'table') params.set('view', S.statsView);
+  if (S.statsTypeFilter !== 'all') params.set('typeF', S.statsTypeFilter);
+  if (S.statsOrder !== 'id') params.set('order', S.statsOrder);
   const hash = params.toString();
   history.replaceState(null, '', hash ? '#' + hash : window.location.pathname);
 }
@@ -2317,6 +2367,8 @@ function loadHash() {
   if (params.get('superseded')) S.hideSuperseded = params.get('superseded') === '1';
   if (params.get('meta'))       S.hideCardMeta = params.get('meta') === '1';
   if (params.get('view'))       S.statsView = params.get('view');
+  if (params.get('typeF'))      S.statsTypeFilter = params.get('typeF');
+  if (params.get('order'))      S.statsOrder = params.get('order');
 }
 
 /* ── Tab routing ─────────────────────────────────────────────────── */
@@ -2647,14 +2699,15 @@ function buildStats() {
     };
   });
 
-  // Sort: primary by sortBy, then excluded always last
-  const sortBy = S.statsSort || 'total';
-  if (sortBy === 'id') {
+  // 2-axis sort: typeFilter selects which metric, order selects ID vs occurrence
+  const typeF = S.statsTypeFilter || 'all';
+  const order = S.statsOrder || 'id';
+  if (order === 'id') {
     stats.sort((a, b) => a.idx - b.idx);
-  } else if (sortBy === 'total') {
+  } else if (typeF === 'all') {
     stats.sort((a, b) => b.total - a.total || a.idx - b.idx);
   } else {
-    stats.sort((a, b) => b.byType[sortBy] - a.byType[sortBy] || b.total - a.total);
+    stats.sort((a, b) => b.byType[typeF] - a.byType[typeF] || b.total - a.total);
   }
   stats.sort((a, b) => (a.excluded ? 1 : 0) - (b.excluded ? 1 : 0));
 
@@ -2665,28 +2718,21 @@ function buildStats() {
     dessert: Math.max(1, ...stats.map(s => s.byType.dessert)),
   };
 
-  // Column header row (only render once at the top of the list)
-  list.innerHTML = `
-    <div class="stat-table-header">
-      <span>食材 (共 ${stats.length})</span>
-      <span class="col-label curry">咖哩</span>
-      <span class="col-label salad">沙拉</span>
-      <span class="col-label dessert">點心</span>
-      <span>需求最高 Top-3 料理</span>
-    </div>
-  `;
+  list.innerHTML = '';
   const typeShort = { curry: '咖', salad: '沙', dessert: '點' };
 
   for (const s of stats) {
     const row = document.createElement('div');
-    row.className = 'stat-row' + (s.excluded ? ' excluded' : '');
+    let rowCls = 'stat-row' + (s.excluded ? ' excluded' : '');
+    if (typeF !== 'all') rowCls += ` dimtype-${typeF}`;
+    row.className = rowCls;
 
     // Build 3 separate heatcell elements (direct grid items for column alignment)
     const cellEls = ['curry', 'salad', 'dessert'].map(t => {
       const cnt = s.byType[t];
       const intensity = cnt === 0 ? 0 : 0.18 + 0.72 * (cnt / maxByType[t]);
       const zeroCls = cnt === 0 ? ' zero' : '';
-      return `<div class="heatcell ${t}${zeroCls}" style="--intensity:${intensity.toFixed(2)}" title="${typeShort[t]} ${cnt}">${cnt}</div>`;
+      return `<div class="heatcell ${t}${zeroCls}" style="--intensity:${intensity.toFixed(2)}" title="${typeShort[t]} ${cnt}"><span class="htype">${typeShort[t]}</span><span class="hcount">${cnt}</span></div>`;
     }).join('');
 
     const top3HTML = s.top3.length === 0
@@ -2744,10 +2790,12 @@ function buildStatsMatrix(sortedStats, activeRecipes) {
   const sortedIngs = sortedStats.map(s => s.ing);
   const ingNameSet = sortedIngs.map(ing => ing.name);
 
-  // Build grid (CSS grid sets columns: 180 label + N×24 cells)
+  // Grid columns: label col (sticky) + N×ing cells that flex-grow from 22px → up to 1fr
+  // At wide screens cells grow to fill, at narrow they stay 22px and horizontal scroll
   const grid = document.createElement('div');
   grid.className = 'tm-grid';
-  grid.style.gridTemplateColumns = `180px repeat(${sortedIngs.length}, 24px)`;
+  grid.style.gridTemplateColumns = `minmax(150px, 180px) repeat(${sortedIngs.length}, minmax(22px, 1fr))`;
+  grid.style.width = '100%';
 
   // Header row
   let html = `<div class="tmh-corner">料理 \\ 食材</div>`;
@@ -2847,14 +2895,26 @@ function initTierFilter() {
 }
 
 function initStatsControls() {
-  const sel = document.getElementById('stats-sort-select');
-  if (sel) {
-    sel.value = S.statsSort;
-    sel.addEventListener('change', () => {
-      S.statsSort = sel.value;
+  // Type filter axis
+  document.querySelectorAll('#stat-typef button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.type === S.statsTypeFilter);
+    btn.addEventListener('click', () => {
+      S.statsTypeFilter = btn.dataset.type;
+      document.querySelectorAll('#stat-typef button').forEach(b => b.classList.toggle('active', b === btn));
       buildStats();
+      saveHash();
     });
-  }
+  });
+  // Order axis
+  document.querySelectorAll('#stat-order button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.order === S.statsOrder);
+    btn.addEventListener('click', () => {
+      S.statsOrder = btn.dataset.order;
+      document.querySelectorAll('#stat-order button').forEach(b => b.classList.toggle('active', b === btn));
+      buildStats();
+      saveHash();
+    });
+  });
   // Sub-tab toggle (table / matrix)
   document.querySelectorAll('.sub-tab-btn').forEach(btn => {
     btn.addEventListener('click', () => switchStatsView(btn.dataset.view));
