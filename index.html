@@ -1242,14 +1242,14 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
 /* (Legacy non-transposed matrix CSS removed — replaced by .tm-grid above) */
 .stat-row {
   display: grid;
-  grid-template-columns: 180px auto 1.4fr;
-  gap: 16px;
+  grid-template-columns: 170px 44px 44px 44px 1fr;
+  gap: 10px;
   align-items: center;
   background: var(--card-bg);
   border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 9px 14px;
-  margin-bottom: 6px;
+  border-radius: 6px;
+  padding: 4px 12px;
+  margin-bottom: 3px;
   box-shadow: var(--card-shadow);
   transition: transform 0.15s, box-shadow 0.15s;
 }
@@ -1277,54 +1277,62 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
 }
 .stat-row .ing-total .ing-total-label { color: var(--text-muted); font-weight: 400; margin-right: 3px; }
 
-/* Inline 3-cell heatmap: replaces horizontal bars; cell bg-intensity = count */
-.stat-heatcells {
-  display: flex;
-  gap: 4px;
-}
+/* 3-cell heatmap columns — vertical column alignment across rows = 19×3 grid feel */
 .heatcell {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  border-radius: 5px;
-  padding: 5px 9px;
-  min-width: 64px;
-  font-size: 11px;
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  font-weight: 600;
+  text-align: center;
+  font-weight: 800;
+  font-size: 12.5px;
+  border-radius: 4px;
+  padding: 3px 0;
   color: var(--text);
+  border: 1px solid var(--border);
+  background: var(--surface2);
 }
 .heatcell.curry   { background: color-mix(in srgb, var(--curry)   calc(var(--intensity, 0) * 100%), var(--surface2)); }
 .heatcell.salad   { background: color-mix(in srgb, var(--salad)   calc(var(--intensity, 0) * 100%), var(--surface2)); }
 .heatcell.dessert { background: color-mix(in srgb, var(--dessert) calc(var(--intensity, 0) * 100%), var(--surface2)); }
-.heatcell .htype { font-size: 10.5px; opacity: 0.85; }
-.heatcell .hcount {
-  margin-left: auto;
-  font-weight: 800;
-  font-size: 12.5px;
-}
-.heatcell.zero { opacity: 0.55; }
-.heatcell.zero .hcount { color: var(--text-muted); }
+.heatcell.zero { opacity: 0.45; color: var(--text-muted); }
 
+/* Column headers row (shows above first stat-row) */
+.stat-table-header {
+  display: grid;
+  grid-template-columns: 170px 44px 44px 44px 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 0 12px;
+  margin-bottom: 4px;
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+.stat-table-header .col-label { text-align: center; }
+.stat-table-header .col-label.curry   { color: var(--curry); }
+.stat-table-header .col-label.salad   { color: var(--salad); }
+.stat-table-header .col-label.dessert { color: var(--dessert); }
+
+/* Top-3 demand list, INLINE (single row, no wrap) — keeps stat-row at 1 line */
 .stat-top3 {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  overflow: hidden;
 }
 .stat-top3-row {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 5px;
-  font-size: 11px;
+  gap: 4px;
+  font-size: 10.5px;
   min-width: 0;
+  flex: 0 1 auto;
 }
-.stat-top3-row img { width: 18px; height: 18px; flex-shrink: 0; }
+.stat-top3-row img { width: 16px; height: 16px; flex-shrink: 0; }
 .stat-top3-row .type-tag {
-  font-size: 9px;
+  font-size: 8.5px;
   font-weight: 700;
-  padding: 1px 5px;
-  border-radius: 6px;
+  padding: 1px 4px;
+  border-radius: 5px;
   color: #fff;
   flex-shrink: 0;
 }
@@ -1332,16 +1340,15 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
 .stat-top3-row .type-tag.salad   { background: var(--salad); }
 .stat-top3-row .type-tag.dessert { background: var(--dessert); }
 .stat-top3-row .top3-name {
-  flex: 1;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  min-width: 0;
   color: var(--text);
+  max-width: 88px;
 }
 .stat-top3-row .top3-demand {
   color: var(--tier-high);
-  font-weight: 700;
+  font-weight: 800;
   font-size: 11px;
   flex-shrink: 0;
 }
@@ -1650,11 +1657,11 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
     </div>
     <label style="font-size:11px;color:var(--text-muted);">排序：
       <select id="stats-sort-select">
+        <option value="id">遊戲 ID 順序</option>
         <option value="total">全部出現次數</option>
         <option value="curry">咖哩需求</option>
         <option value="salad">沙拉需求</option>
         <option value="dessert">點心需求</option>
-        <option value="id">遊戲 ID 順序</option>
       </select>
     </label>
     <span id="stats-summary" style="font-size:11px;color:var(--text-muted);margin-left:auto;"></span>
@@ -1813,7 +1820,7 @@ const S = {
   tab: 'browser',
   hideSuperseded: true,      // default ON — hide lower-score same-type recipes
   hideCardMeta: true,        // default ON — hide tier% badge + score on cards
-  statsSort: 'total',        // Tab 2 sort key
+  statsSort: 'id',           // Tab 2 sort key — default ID so 粗枝大蔥 is first (game order)
   statsView: 'table',        // Tab 2 sub-tab: 'table' | 'matrix'
 };
 
@@ -2658,21 +2665,28 @@ function buildStats() {
     dessert: Math.max(1, ...stats.map(s => s.byType.dessert)),
   };
 
-  list.innerHTML = '';
+  // Column header row (only render once at the top of the list)
+  list.innerHTML = `
+    <div class="stat-table-header">
+      <span>食材 (共 ${stats.length})</span>
+      <span class="col-label curry">咖哩</span>
+      <span class="col-label salad">沙拉</span>
+      <span class="col-label dessert">點心</span>
+      <span>需求最高 Top-3 料理</span>
+    </div>
+  `;
   const typeShort = { curry: '咖', salad: '沙', dessert: '點' };
 
   for (const s of stats) {
     const row = document.createElement('div');
     row.className = 'stat-row' + (s.excluded ? ' excluded' : '');
 
-    const cellsHTML = ['curry', 'salad', 'dessert'].map(t => {
+    // Build 3 separate heatcell elements (direct grid items for column alignment)
+    const cellEls = ['curry', 'salad', 'dessert'].map(t => {
       const cnt = s.byType[t];
-      const intensity = cnt === 0 ? 0 : 0.15 + 0.65 * (cnt / maxByType[t]);
+      const intensity = cnt === 0 ? 0 : 0.18 + 0.72 * (cnt / maxByType[t]);
       const zeroCls = cnt === 0 ? ' zero' : '';
-      return `<div class="heatcell ${t}${zeroCls}" style="--intensity:${intensity.toFixed(2)}">
-        <span class="htype">${typeShort[t]}</span>
-        <span class="hcount">${cnt}</span>
-      </div>`;
+      return `<div class="heatcell ${t}${zeroCls}" style="--intensity:${intensity.toFixed(2)}" title="${typeShort[t]} ${cnt}">${cnt}</div>`;
     }).join('');
 
     const top3HTML = s.top3.length === 0
@@ -2692,7 +2706,7 @@ function buildStats() {
         <span class="ing-name">${s.ing.name}</span>
         <span class="ing-total"><span class="ing-total-label">共</span>${s.total}</span>
       </div>
-      <div class="stat-heatcells">${cellsHTML}</div>
+      ${cellEls}
       <div class="stat-top3">${top3HTML}</div>
     `;
     list.appendChild(row);
