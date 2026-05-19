@@ -1406,13 +1406,24 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
   flex-shrink: 0;
 }
 
-/* ── Tab 3 Map: 2D arc-diagram SVG graph ─────────────────────── */
+/* ── Tab 3 Map: 2D radial bipartite SVG graph ────────────────── */
+#map-controls {
+  display: flex;
+  gap: 14px;
+  padding: 6px 10px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  font-size: 10.5px;
+}
 #explore-map {
   padding: 8px;
   overflow: hidden;
   flex: 1;
   display: flex;
 }
+.g-ing-node.hidden-by-owned,
+.g-recipe-node.hidden-superseded { display: none; }
 #explore-graph, #explore-graph-tab2 {
   width: 100%;
   height: 100%;
@@ -1867,6 +1878,10 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
       <span>🗺 探索地圖</span>
       <span class="panel-header-note" id="map-state-summary">hover 食材 / 料理 看連線</span>
     </div>
+    <div id="map-controls">
+      <label class="browser-toggle"><input type="checkbox" id="tab3-hide-owned"> 隱藏已有食材（內圈崩潰）</label>
+      <label class="browser-toggle"><input type="checkbox" id="tab3-hide-superseded"> 隱藏被超越料理（外圈崩潰）</label>
+    </div>
     <div class="panel-body" id="explore-map">
       <svg id="explore-graph" preserveAspectRatio="xMidYMid meet"></svg>
     </div>
@@ -1997,6 +2012,8 @@ const S = {
   statsOrder: 'id',          // Tab 2 order axis: 'id' | 'occurrence'
   statsView: 'table',        // Tab 2 sub-tab: 'table' | 'matrix'
   showExcluded: false,       // Tab 2: include excluded ings in stats & matrix
+  tab3HideOwnedIngs: false,  // Tab 3 radial: hide ings already owned (inner ring collapse)
+  tab3HideSuperseded: false, // Tab 3 radial: hide same-type recipes scoring < highest-cookable
 };
 
 const TYPE_META = {
@@ -2106,12 +2123,12 @@ function buildMatrix() {
 
 function buildExploreMap() {
   if (!S.data) return;
-  // Render the arc graph into every SVG container that exists
-  // (currently Tab 3's #explore-graph and Tab 2's #explore-graph-tab2).
-  const svgs = ['explore-graph', 'explore-graph-tab2']
-    .map(id => document.getElementById(id))
-    .filter(Boolean);
-  for (const svg of svgs) renderArcGraph(svg);
+  // Tab 3 (#explore-graph) → radial bipartite layout
+  // Tab 2 (#explore-graph-tab2) → arc layout (kept as alt presentation)
+  const tab3 = document.getElementById('explore-graph');
+  const tab2 = document.getElementById('explore-graph-tab2');
+  if (tab3) renderRadialGraph(tab3);
+  if (tab2) renderArcGraph(tab2);
 }
 
 function renderArcGraph(svg) {
@@ -2285,6 +2302,237 @@ function renderArcGraph(svg) {
   const summaryText = `可煮 ${cookable} · 差 1-2 種 ${near} · hover 看連線`;
   document.getElementById('map-state-summary')?.replaceChildren(document.createTextNode(summaryText));
   document.getElementById('map-state-summary-tab2')?.replaceChildren(document.createTextNode(summaryText));
+}
+
+/* Radial bipartite layout for Tab 3:
+   - Inner ring: 19 ingredients
+   - Outer ring: filtered recipes grouped by type in 3 sectors
+   - Lines: each recipe → its 4 ings (straight lines through center)
+   - Recipe icons placed at radius beyond outer ring
+   - Two collapse toggles: hide owned ings, hide superseded recipes */
+function renderRadialGraph(svg) {
+  const { ingredients, recipes } = S.data;
+  const ingByName = Object.fromEntries(ingredients.map((x, i) => [x.name, i]));
+
+  const tierFiltered = recipes.filter(r =>
+    !r.is_placeholder && r.tier_bonus >= S.minTier
+  );
+
+  // Determine "superseded" status per recipe (within its type)
+  const supersededByType = { curry: -1, salad: -1, dessert: -1 };
+  if (S.tab3HideSuperseded) {
+    for (const r of tierFiltered) {
+      const allOwned = r.ingredients.every(x => S.owned.has(ingByName[x.name]));
+      const hasExcluded = r.ingredients.some(x => S.excluded.has(ingByName[x.name]));
+      if (allOwned && !hasExcluded && r.score_final > supersededByType[r.type_en]) {
+        supersededByType[r.type_en] = r.score_final;
+      }
+    }
+  }
+
+  // Layout
+  const W = 800, H = 800;
+  const cx = W / 2, cy = H / 2;
+  const r1 = 160;       // ing ring
+  const r2 = 290;       // recipe ring
+  const rIcon = 332;    // recipe icon radius
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+  // Ing positions: evenly around the inner ring, start from top, clockwise
+  const ingPos = ingredients.map((ing, i) => {
+    const angle = -Math.PI / 2 + (2 * Math.PI * i / ingredients.length);
+    return { x: cx + r1 * Math.cos(angle), y: cy + r1 * Math.sin(angle), angle, ing };
+  });
+
+  // Recipe positions: 3 sectors, each spanning 120° starting from top
+  const typeOrder = ['curry', 'salad', 'dessert'];
+  const grouped = Object.fromEntries(typeOrder.map(t => [t, []]));
+  for (const r of tierFiltered) grouped[r.type_en].push(r);
+  for (const t of typeOrder) grouped[t].sort((a, b) => b.score_final - a.score_final);
+
+  const SECTOR_START = -Math.PI / 2;            // 12 o'clock
+  const SECTOR_WIDTH = (2 * Math.PI) / 3;
+  const recPos = {};
+  typeOrder.forEach((t, sIdx) => {
+    const list = grouped[t];
+    if (!list.length) return;
+    const sectorBase = SECTOR_START + sIdx * SECTOR_WIDTH;
+    const margin = SECTOR_WIDTH * 0.06;
+    const usable = SECTOR_WIDTH - 2 * margin;
+    const step = list.length > 1 ? usable / (list.length - 1) : 0;
+    list.forEach((r, i) => {
+      const angle = sectorBase + margin + i * step;
+      recPos[r.name_en] = {
+        angle, type: t, recipe: r,
+        x: cx + r2 * Math.cos(angle),
+        y: cy + r2 * Math.sin(angle),
+        ix: cx + rIcon * Math.cos(angle),
+        iy: cy + rIcon * Math.sin(angle),
+      };
+    });
+  });
+
+  const ns = 'http://www.w3.org/2000/svg';
+  svg.innerHTML = '';
+
+  // Background sector arcs (subtle, type-tinted)
+  const arcLayer = document.createElementNS(ns, 'g');
+  typeOrder.forEach((t, sIdx) => {
+    const base = SECTOR_START + sIdx * SECTOR_WIDTH;
+    const x1 = cx + (r2 + 5) * Math.cos(base);
+    const y1 = cy + (r2 + 5) * Math.sin(base);
+    const x2 = cx + (r2 + 5) * Math.cos(base + SECTOR_WIDTH);
+    const y2 = cy + (r2 + 5) * Math.sin(base + SECTOR_WIDTH);
+    const path = document.createElementNS(ns, 'path');
+    path.setAttribute('d', `M${x1},${y1} A${r2+5},${r2+5} 0 0 1 ${x2},${y2}`);
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', `var(--${t})`);
+    path.setAttribute('stroke-width', '2');
+    path.setAttribute('opacity', '0.25');
+    arcLayer.appendChild(path);
+
+    // Type label, placed mid-sector at slightly larger radius
+    const mid = base + SECTOR_WIDTH / 2;
+    const lx = cx + (r2 + 80) * Math.cos(mid);
+    const ly = cy + (r2 + 80) * Math.sin(mid);
+    const lbl = document.createElementNS(ns, 'text');
+    lbl.setAttribute('x', lx); lbl.setAttribute('y', ly);
+    lbl.setAttribute('class', `g-type-label ${t}`);
+    lbl.setAttribute('text-anchor', 'middle');
+    lbl.setAttribute('font-size', '13');
+    const tLabels = { curry: '🍛 咖哩、濃湯', salad: '🥗 沙拉', dessert: '🧁 點心、飲料' };
+    lbl.textContent = `${tLabels[t]} (${grouped[t].length})`;
+    arcLayer.appendChild(lbl);
+  });
+  svg.appendChild(arcLayer);
+
+  // Edges layer (drawn first → below nodes)
+  const edgeLayer = document.createElementNS(ns, 'g');
+  edgeLayer.setAttribute('id', 'g-edges');
+  svg.appendChild(edgeLayer);
+
+  for (const r of tierFiltered) {
+    const rp = recPos[r.name_en];
+    if (!rp) continue;
+    for (const ing of r.ingredients) {
+      const iIdx = ingByName[ing.name];
+      const ip = ingPos[iIdx];
+      const path = document.createElementNS(ns, 'path');
+      // Slight curve through the center bias
+      path.setAttribute('d', `M${ip.x},${ip.y} Q${cx},${cy} ${rp.x},${rp.y}`);
+      path.classList.add('g-edge');
+      path.dataset.iidx = iIdx;
+      path.dataset.rid = r.name_en;
+      if (S.owned.has(iIdx) && !r.ingredients.some(x => S.excluded.has(ingByName[x.name]))) {
+        const allOwned = r.ingredients.every(x => S.owned.has(ingByName[x.name]));
+        path.classList.add(allOwned ? 'cookable-perm' : 'owned-perm');
+      }
+      edgeLayer.appendChild(path);
+    }
+  }
+
+  // Ing nodes (inner ring)
+  ingredients.forEach((ing, i) => {
+    const pos = ingPos[i];
+    const g = document.createElementNS(ns, 'g');
+    let cls = 'g-ing-node';
+    if (S.owned.has(i))    cls += ' owned';
+    if (S.excluded.has(i)) cls += ' excluded';
+    if (S.tab3HideOwnedIngs && S.owned.has(i)) cls += ' hidden-by-owned';
+    g.setAttribute('class', cls);
+    g.dataset.iidx = i;
+    g.setAttribute('transform', `translate(${pos.x},${pos.y})`);
+
+    const circle = document.createElementNS(ns, 'circle');
+    circle.setAttribute('class', 'g-ing-circle');
+    circle.setAttribute('r', 17);
+    g.appendChild(circle);
+
+    const img = document.createElementNS(ns, 'image');
+    img.setAttribute('class', 'g-ing-img');
+    img.setAttribute('href', `assets/icons/ingredients/${ing.key}.png`);
+    img.setAttribute('x', -13); img.setAttribute('y', -13);
+    img.setAttribute('width', 26); img.setAttribute('height', 26);
+    g.appendChild(img);
+
+    // Place label radially outward from center (so labels don't overlap the circle)
+    const labelR = r1 - 30;
+    const labelX = (r1 - labelR > 0) ? -((r1 - labelR) * Math.cos(pos.angle)) : 0;
+    const labelY = (r1 - labelR > 0) ? -((r1 - labelR) * Math.sin(pos.angle)) : 0;
+    const label = document.createElementNS(ns, 'text');
+    label.setAttribute('class', 'g-ing-label');
+    label.setAttribute('x', labelX); label.setAttribute('y', labelY + 4);
+    label.textContent = ing.name;
+    g.appendChild(label);
+
+    g.addEventListener('mouseenter', () => highlightIngOnGraph(i));
+    g.addEventListener('mouseleave', () => clearGraphHighlight());
+    g.addEventListener('click', () => openPopover());
+    svg.appendChild(g);
+  });
+
+  // Recipe nodes (outer ring) + icons
+  for (const t of typeOrder) {
+    for (const r of grouped[t]) {
+      const pos = recPos[r.name_en];
+      const ingIdxs = r.ingredients.map(x => ingByName[x.name]);
+      const hasExcluded = ingIdxs.some(idx => S.excluded.has(idx));
+      const missing = ingIdxs.filter(idx => !S.owned.has(idx));
+      const allOwned = missing.length === 0 && !hasExcluded;
+
+      let cls = `g-recipe-node ${t}`;
+      if (hasExcluded) cls += ' hidden-by-exclude';
+      else if (allOwned) cls += ' cookable';
+      else if (missing.length <= 2 && ingIdxs.length - missing.length > 0) cls += ' near-cookable';
+      // Hide-superseded: same-type recipe whose score < highest-cookable-in-this-type
+      if (S.tab3HideSuperseded && !allOwned && r.score_final < supersededByType[t]) {
+        cls += ' hidden-superseded';
+      }
+
+      const g = document.createElementNS(ns, 'g');
+      g.setAttribute('class', cls);
+      g.dataset.rid = r.name_en;
+      g.dataset.ings = ingIdxs.join(',');
+      g.setAttribute('transform', `translate(${pos.x},${pos.y})`);
+
+      const ring = document.createElementNS(ns, 'circle');
+      ring.setAttribute('class', 'g-rec-ring');
+      ring.setAttribute('r', 11);
+      g.appendChild(ring);
+
+      const c = document.createElementNS(ns, 'circle');
+      c.setAttribute('class', 'g-rec-circle');
+      c.setAttribute('r', 7);
+      g.appendChild(c);
+
+      // Recipe icon, placed outside the ring at rIcon
+      if (r.name_en) {
+        const iconDx = pos.ix - pos.x;
+        const iconDy = pos.iy - pos.y;
+        const img = document.createElementNS(ns, 'image');
+        img.setAttribute('class', 'g-rec-icon');
+        img.setAttribute('href', `assets/icons/recipes/${r.name_en}.png`);
+        img.setAttribute('x', iconDx - 11); img.setAttribute('y', iconDy - 11);
+        img.setAttribute('width', 22); img.setAttribute('height', 22);
+        g.appendChild(img);
+      }
+
+      g.addEventListener('mouseenter', e => {
+        highlightRecipeOnGraph(r.name_en, ingIdxs);
+        showTooltip(e, r.name, r.type,
+          `<b>+${(r.tier_bonus*100).toFixed(0)}%</b> · ${r.score_final.toLocaleString()} 分<br>` +
+          r.ingredients.map(i => `${i.name}×${i.count}`).join('、'));
+      });
+      g.addEventListener('mouseleave', () => { clearGraphHighlight(); hideTooltip(); });
+      svg.appendChild(g);
+    }
+  }
+
+  // Summary (per-SVG count to avoid double)
+  const cookable = svg.querySelectorAll('.g-recipe-node.cookable').length;
+  const near = svg.querySelectorAll('.g-recipe-node.near-cookable').length;
+  const summaryText = `可煮 ${cookable} · 差 1-2 種 ${near} · hover 看連線`;
+  document.getElementById('map-state-summary')?.replaceChildren(document.createTextNode(summaryText));
 }
 
 function highlightIngOnGraph(idx) {
@@ -2632,6 +2880,8 @@ function saveHash() {
   if (S.statsTypeFilter !== 'all') params.set('typeF', S.statsTypeFilter);
   if (S.statsOrder !== 'id') params.set('order', S.statsOrder);
   if (S.showExcluded) params.set('showExcl', '1');
+  if (S.tab3HideOwnedIngs) params.set('hideOwn', '1');
+  if (S.tab3HideSuperseded) params.set('hideSup', '1');
   const hash = params.toString();
   history.replaceState(null, '', hash ? '#' + hash : window.location.pathname);
 }
@@ -2654,6 +2904,8 @@ function loadHash() {
   if (params.get('typeF'))      S.statsTypeFilter = params.get('typeF');
   if (params.get('order'))      S.statsOrder = params.get('order');
   if (params.get('showExcl'))   S.showExcluded = params.get('showExcl') === '1';
+  if (params.get('hideOwn'))    S.tab3HideOwnedIngs = params.get('hideOwn') === '1';
+  if (params.get('hideSup'))    S.tab3HideSuperseded = params.get('hideSup') === '1';
 }
 
 /* ── Tab routing ─────────────────────────────────────────────────── */
@@ -2778,6 +3030,18 @@ function initExploreInfo() {
   };
   document.getElementById('rec-info-btn')?.addEventListener('click', () => toggle('rec-explainer'));
   document.getElementById('plan-info-btn')?.addEventListener('click', () => toggle('plan-explainer'));
+
+  // Tab 3 radial-graph toggles
+  const hideOwned = document.getElementById('tab3-hide-owned');
+  if (hideOwned) {
+    hideOwned.checked = S.tab3HideOwnedIngs;
+    hideOwned.addEventListener('change', e => { S.tab3HideOwnedIngs = e.target.checked; buildExploreMap(); saveHash(); });
+  }
+  const hideSup = document.getElementById('tab3-hide-superseded');
+  if (hideSup) {
+    hideSup.checked = S.tab3HideSuperseded;
+    hideSup.addEventListener('change', e => { S.tab3HideSuperseded = e.target.checked; buildExploreMap(); saveHash(); });
+  }
 }
 
 function initPopover() {
