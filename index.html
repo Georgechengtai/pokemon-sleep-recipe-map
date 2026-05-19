@@ -1973,9 +1973,11 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
       </div>
       <div class="panel-body">
         <div id="rec-explainer" hidden>
-          <p><b>最多新料理</b>：哪個食材能解鎖最多道（按 tier 加權）。適合「我要快速增加可煮品項數」。</p>
-          <p><b>下一道高料理</b>：哪個食材能讓你煮到目前最高的 tier 料理。適合「我要衝最高 +78%」。</p>
-          <p>每張卡片顯示：拿到此食材會 <b>立刻解鎖</b> 的料理，以及變成 <b>差 1-2 種</b> 的後援料理（「support dishes」）。</p>
+          <p><b>最多新料理</b>：解鎖最多道（不分系列）。適合「我要可煮品項數最大化」。</p>
+          <p><b>下一道高料理</b>：解鎖到目前最高的 tier 料理。適合「我要衝最高 +78%」。</p>
+          <p><b>補強弱系</b>：先看你三系列哪個可煮料理數最少，再推「最能補弱系」的食材。</p>
+          <p><b>最近距離</b>：哪個食材能讓你最接近完成（差最少種）一道料理 — 適合衝下一個 milestone。</p>
+          <p>卡片數字：<b>+N 道</b> 立即解鎖、<b>+X 能量</b> 總分加成、<b>再差 K 種</b> = 拿了這個後該後援料理還缺 K 種。</p>
           <p>Hover 推薦 → Map 黃色虛線顯示「若拿這個會怎麼變」。</p>
         </div>
         <div class="rec-mode-bar">
@@ -1983,6 +1985,8 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
           <div class="btn-group" id="rec-mode">
             <button data-mode="most" class="active">最多新料理</button>
             <button data-mode="highest">下一道高料理</button>
+            <button data-mode="worst-type">補強弱系</button>
+            <button data-mode="closest">最近距離</button>
           </div>
         </div>
         <div id="rec-list" class="rec-list-pad">先在 ⚙ 食材設定打勾你已有的食材</div>
@@ -2859,14 +2863,25 @@ function buildRecommender() {
 
     const maxNewTier = Math.max(0, ...newCookable.map(r => r.tier_bonus));
     const maxNewScore = Math.max(0, ...newCookable.map(r => r.score_final));
-    const weightedGain = newCookable.reduce((sum, r) => sum + r.score_final / 10000, 0);
+    const totalEnergy = newCookable.reduce((sum, r) => sum + r.score_final, 0);
+    const minNearMissing = Math.min(Infinity, ...newNear.map(n => n.stillMissing));
 
     candidates.push({
       idx: ci, newCookable, newNear,
       binaryGain: newCookable.length,
-      maxNewTier, maxNewScore, weightedGain,
+      maxNewTier, maxNewScore, totalEnergy, minNearMissing,
     });
   }
+
+  // Current cookable count per type (for "worst-type" mode)
+  const cookByType = {};
+  for (const t of ['curry', 'salad', 'dessert']) {
+    cookByType[t] = activeRecipes.filter(r =>
+      r.type_en === t && r.ingredients.every(ing => S.owned.has(ingByName[ing.name]))
+    ).length;
+  }
+  const minCount = Math.min(...Object.values(cookByType));
+  const worstTypes = ['curry','salad','dessert'].filter(t => cookByType[t] === minCount);
 
   // Sort by mode
   if (S.recMode === 'highest') {
@@ -2875,10 +2890,25 @@ function buildRecommender() {
       b.maxNewScore - a.maxNewScore ||
       b.binaryGain - a.binaryGain
     );
+  } else if (S.recMode === 'worst-type') {
+    // How many of the WORST-type recipes does this ing unlock?
+    const worstGain = c => c.newCookable.filter(r => worstTypes.includes(r.type_en)).length;
+    candidates.sort((a, b) =>
+      worstGain(b) - worstGain(a) ||
+      b.totalEnergy - a.totalEnergy ||
+      b.binaryGain - a.binaryGain
+    );
+  } else if (S.recMode === 'closest') {
+    // Smaller "still missing after this rec" → closer to a milestone
+    candidates.sort((a, b) =>
+      a.minNearMissing - b.minNearMissing ||
+      b.newNear.length - a.newNear.length ||
+      b.binaryGain - a.binaryGain
+    );
   } else { // 'most' default
     candidates.sort((a, b) =>
       b.binaryGain - a.binaryGain ||
-      b.weightedGain - a.weightedGain ||
+      b.totalEnergy - a.totalEnergy ||
       b.newNear.length - a.newNear.length
     );
   }
@@ -2919,11 +2949,14 @@ function buildRecCard(c, rank, ing) {
   const supportHTML = c.newNear.length === 0
     ? '<span class="rec-empty-mini">無</span>'
     : c.newNear.slice(0, 6).map(n =>
-        `<span class="rec-recipe-chip"><span class="type-tag ${n.recipe.type_en}">${typeLabel[n.recipe.type_en]}</span>${n.recipe.name} <span class="miss-after">差${n.stillMissing}</span></span>`
+        `<span class="rec-recipe-chip"><span class="type-tag ${n.recipe.type_en}">${typeLabel[n.recipe.type_en]}</span>${n.recipe.name} <span class="miss-after" title="拿了這個推薦之後，這道料理還缺 ${n.stillMissing} 種食材">再差${n.stillMissing}</span></span>`
       ).join('') + (c.newNear.length > 6 ? `<span class="rec-empty-mini">…+${c.newNear.length-6}</span>` : '');
 
+  const energyKLabel = c.totalEnergy >= 1000
+    ? `+${(c.totalEnergy/1000).toFixed(1)}k 能量`
+    : `+${c.totalEnergy} 能量`;
   const gainLabel = c.newCookable.length > 0
-    ? `<span class="rec-gain">+${c.newCookable.length} 道${c.maxNewTier > 0 ? ` · 最高 +${(c.maxNewTier*100).toFixed(0)}%` : ''}</span>`
+    ? `<span class="rec-gain">+${c.newCookable.length} 道 · ${energyKLabel}${c.maxNewTier > 0 ? ` · 最高 +${(c.maxNewTier*100).toFixed(0)}%` : ''}</span>`
     : `<span class="rec-gain" style="color:var(--accent-bright)">接近 ${c.newNear.length} 道</span>`;
 
   card.innerHTML = `
