@@ -1424,6 +1424,31 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
 }
 .g-ing-node.hidden-by-owned,
 .g-recipe-node.hidden-superseded { display: none; }
+
+/* Text-caption hide toggle (default ON via JS — labels hidden by default) */
+#explore-graph.hide-labels .g-ing-label,
+#explore-graph.hide-labels .g-type-label { display: none; }
+
+/* Centre summary inside the inner ring (gives the empty middle a purpose) */
+.g-centre-summary {
+  pointer-events: none;
+}
+.g-centre-summary text { text-anchor: middle; }
+.g-centre-summary .cs-big {
+  font-size: 22px;
+  font-weight: 800;
+  fill: var(--text);
+}
+.g-centre-summary .cs-label {
+  font-size: 11px;
+  fill: var(--text-muted);
+  letter-spacing: 0.04em;
+}
+.g-centre-summary .cs-tier {
+  font-size: 13px;
+  font-weight: 700;
+  fill: var(--accent-bright);
+}
 #explore-graph, #explore-graph-tab2 {
   width: 100%;
   height: 100%;
@@ -1929,6 +1954,8 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
     <div id="map-controls">
       <label class="browser-toggle"><input type="checkbox" id="tab3-hide-owned"> 隱藏已有食材（內圈崩潰）</label>
       <label class="browser-toggle"><input type="checkbox" id="tab3-hide-superseded"> 隱藏被超越料理（外圈崩潰）</label>
+      <label class="browser-toggle"><input type="checkbox" id="tab3-show-labels"> 顯示文字標籤</label>
+      <span style="margin-left:auto;font-size:10.5px;color:var(--text-muted);">點 ing/推薦卡 直接切換狀態</span>
     </div>
     <div class="panel-body" id="explore-map">
       <svg id="explore-graph" preserveAspectRatio="xMidYMid meet"></svg>
@@ -2070,6 +2097,7 @@ const S = {
   showExcluded: false,       // Tab 2: include excluded ings in stats & matrix
   tab3HideOwnedIngs: false,  // Tab 3 radial: hide ings already owned (inner ring collapse)
   tab3HideSuperseded: false, // Tab 3 radial: hide same-type recipes scoring < highest-cookable
+  tab3HideLabels: true,      // Tab 3 radial: hide text captions (ing names, sector labels). Default ON.
   recMode: 'most',           // Recommender mode: 'most' (most new recipes) | 'highest' (next-higher-tier)
 };
 
@@ -2408,13 +2436,14 @@ function renderRadialGraph(svg) {
   }
   for (const t of typeOrder) grouped[t].sort((a, b) => b.score_final - a.score_final);
 
-  // Layout — viewBox is the panel's actual aspect, icons sized big to fill it
-  const W = 800, H = 800;
+  // Layout — bigger viewBox so sector labels at r2+60 stay inside bounds
+  const W = 900, H = 900;
   const cx = W / 2, cy = H / 2;
-  const r1 = 230;       // ing ring — pushed outward, leaves smaller centre void
-  const r2 = 350;       // recipe ring inner
-  const rIcon = 380;    // recipe icon radius
+  const r1 = 230;       // ing ring
+  const r2 = 370;       // recipe ring inner
+  const rIcon = 405;    // recipe icon radius
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.classList.toggle('hide-labels', S.tab3HideLabels);
 
   // Ing positions: based on VISIBLE ings (re-spaced evenly)
   const ingPos = {};
@@ -2471,10 +2500,10 @@ function renderRadialGraph(svg) {
     path.setAttribute('opacity', '0.25');
     arcLayer.appendChild(path);
 
-    // Type label, placed mid-sector at slightly larger radius
+    // Type label, placed mid-sector at slightly larger radius (within viewBox)
     const mid = base + SECTOR_WIDTH / 2;
-    const lx = cx + (r2 + 80) * Math.cos(mid);
-    const ly = cy + (r2 + 80) * Math.sin(mid);
+    const lx = cx + (r2 + 70) * Math.cos(mid);
+    const ly = cy + (r2 + 70) * Math.sin(mid);
     const lbl = document.createElementNS(ns, 'text');
     lbl.setAttribute('x', lx); lbl.setAttribute('y', ly);
     lbl.setAttribute('class', `g-type-label ${t}`);
@@ -2548,7 +2577,7 @@ function renderRadialGraph(svg) {
 
     g.addEventListener('mouseenter', () => highlightIngOnGraph(iIdx));
     g.addEventListener('mouseleave', () => clearGraphHighlight());
-    g.addEventListener('click', () => openPopover());
+    g.addEventListener('click', () => cycleIngState(iIdx));   // direct edit from Tab 3
     svg.appendChild(g);
   });
 
@@ -2580,11 +2609,11 @@ function renderRadialGraph(svg) {
       c.setAttribute('r', 8);
       g.appendChild(c);
 
-      // Recipe icon, placed outside the ring at rIcon
+      // Recipe icon, smaller to avoid sector overlap (was 32, caused 點心 crowding)
       if (r.name_en) {
         const iconDx = pos.ix - pos.x;
         const iconDy = pos.iy - pos.y;
-        const iconSize = 32;
+        const iconSize = 24;
         const img = document.createElementNS(ns, 'image');
         img.setAttribute('class', 'g-rec-icon');
         img.setAttribute('href', `assets/icons/recipes/${r.name_en}.png`);
@@ -2604,10 +2633,28 @@ function renderRadialGraph(svg) {
     }
   }
 
-  // Summary (per-SVG count to avoid double)
+  // Centre summary — give the inner void a purpose
   const cookable = svg.querySelectorAll('.g-recipe-node.cookable').length;
   const near = svg.querySelectorAll('.g-recipe-node.near-cookable').length;
-  const summaryText = `可煮 ${cookable} · 差 1-2 種 ${near} · hover 看連線`;
+  const ownedCount = S.owned.size;
+  const tierLabel = S.minTier === 0 ? '全部 階級' : `+${(S.minTier * 100).toFixed(0)}%↑`;
+  const totalVisible = svg.querySelectorAll('.g-recipe-node').length;
+
+  const centre = document.createElementNS(ns, 'g');
+  centre.setAttribute('class', 'g-centre-summary');
+  centre.setAttribute('transform', `translate(${cx},${cy})`);
+  centre.innerHTML = `
+    <text class="cs-tier" y="-58">${tierLabel}</text>
+    <text class="cs-label" y="-32">食材 ${ownedCount} / 19</text>
+    <text class="cs-big" y="0" fill="var(--owned)">${cookable}</text>
+    <text class="cs-label" y="18">可煮 / ${totalVisible} 道</text>
+    <text class="cs-big" y="50" fill="var(--accent-bright)">${near}</text>
+    <text class="cs-label" y="68">差 1-2 種</text>
+  `;
+  svg.appendChild(centre);
+
+  // External summary (panel header)
+  const summaryText = `可煮 ${cookable} · 差 1-2 種 ${near} · hover 看連線、點 ing 切狀態`;
   document.getElementById('map-state-summary')?.replaceChildren(document.createTextNode(summaryText));
 }
 
@@ -2874,7 +2921,7 @@ function buildRecCard(c, rank, ing) {
     clearHighlight();
     clearGhostPreview();
   });
-  card.addEventListener('click', () => openPopover());
+  card.addEventListener('click', () => cycleIngState(c.idx));  // direct add from recommender
   return card;
 }
 
@@ -2927,7 +2974,7 @@ function buildPlanner() {
     badge.className = `plan-badge ${cls}`;
     badge.innerHTML = `${ingIconHTML(ing, 14)} ${ing.name}`;
     badge.style.cursor = 'pointer';
-    badge.addEventListener('click', () => openPopover());
+    badge.addEventListener('click', () => cycleIngState(i));  // direct edit from plan badge
     badge.addEventListener('mouseenter', () => {
       highlightIngredient(i);
       if (!S.owned.has(i)) ghostPreviewIng(i);  // only preview missing ings
@@ -2986,6 +3033,7 @@ function saveHash() {
   if (S.tab3HideOwnedIngs) params.set('hideOwn', '1');
   if (S.tab3HideSuperseded) params.set('hideSup', '1');
   if (S.recMode !== 'most') params.set('recMode', S.recMode);
+  if (!S.tab3HideLabels) params.set('showLbl', '1');
   const hash = params.toString();
   history.replaceState(null, '', hash ? '#' + hash : window.location.pathname);
 }
@@ -3011,6 +3059,7 @@ function loadHash() {
   if (params.get('hideOwn'))    S.tab3HideOwnedIngs = params.get('hideOwn') === '1';
   if (params.get('hideSup'))    S.tab3HideSuperseded = params.get('hideSup') === '1';
   if (params.get('recMode'))    S.recMode = params.get('recMode');
+  if (params.get('showLbl'))    S.tab3HideLabels = false;
 }
 
 /* ── Tab routing ─────────────────────────────────────────────────── */
@@ -3157,6 +3206,11 @@ function initExploreInfo() {
   if (hideSup) {
     hideSup.checked = S.tab3HideSuperseded;
     hideSup.addEventListener('change', e => { S.tab3HideSuperseded = e.target.checked; buildExploreMap(); saveHash(); });
+  }
+  const showLabels = document.getElementById('tab3-show-labels');
+  if (showLabels) {
+    showLabels.checked = !S.tab3HideLabels;
+    showLabels.addEventListener('change', e => { S.tab3HideLabels = !e.target.checked; buildExploreMap(); saveHash(); });
   }
 }
 
