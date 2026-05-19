@@ -1683,6 +1683,54 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
   justify-content: center;
 }
 .info-icon:hover { color: var(--accent-bright); border-color: var(--accent); }
+.rec-mode-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+  background: var(--surface2);
+  border-radius: 6px;
+}
+.rec-mode-label { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+
+.rec-card .rec-unlock-list,
+.rec-card .rec-support-list {
+  font-size: 10.5px;
+  padding: 3px 4px 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  line-height: 1.4;
+}
+.rec-card .rec-unlock-list { color: var(--owned); }
+.rec-card .rec-support-list { color: var(--text-muted); }
+.rec-card .rec-section-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.rec-card .rec-recipe-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10.5px;
+}
+.rec-card .rec-recipe-chip .type-tag {
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 5px;
+  color: #fff;
+  font-weight: 700;
+}
+.rec-recipe-chip .type-tag.curry   { background: var(--curry); }
+.rec-recipe-chip .type-tag.salad   { background: var(--salad); }
+.rec-recipe-chip .type-tag.dessert { background: var(--dessert); }
+.rec-recipe-chip .miss-after { color: var(--accent-bright); font-weight: 700; }
+.rec-card .rec-empty-mini { color: var(--text-muted); font-style: italic; font-size: 10px; padding: 2px 4px; }
+
 #rec-explainer, #plan-explainer {
   background: var(--surface2);
   border-left: 3px solid var(--accent);
@@ -1898,9 +1946,17 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
       </div>
       <div class="panel-body">
         <div id="rec-explainer" hidden>
-          <p>給定你目前已有的食材集，這個面板計算<b>下一個最值得抓的食材</b>：</p>
-          <p>對每個還沒擁有的食材 x，算「加入 x 後能多解鎖多少料理（按階級分數加權）」。排序顯示前 3。</p>
-          <p>把選定推薦 hover 一下，Map 會亮起該食材能解鎖的料理。</p>
+          <p><b>最多新料理</b>：哪個食材能解鎖最多道（按 tier 加權）。適合「我要快速增加可煮品項數」。</p>
+          <p><b>下一道高料理</b>：哪個食材能讓你煮到目前最高的 tier 料理。適合「我要衝最高 +78%」。</p>
+          <p>每張卡片顯示：拿到此食材會 <b>立刻解鎖</b> 的料理，以及變成 <b>差 1-2 種</b> 的後援料理（「support dishes」）。</p>
+          <p>Hover 推薦 → Map 黃色虛線顯示「若拿這個會怎麼變」。</p>
+        </div>
+        <div class="rec-mode-bar">
+          <span class="rec-mode-label">模式</span>
+          <div class="btn-group" id="rec-mode">
+            <button data-mode="most" class="active">最多新料理</button>
+            <button data-mode="highest">下一道高料理</button>
+          </div>
         </div>
         <div id="rec-list" class="rec-list-pad">先在 ⚙ 食材設定打勾你已有的食材</div>
       </div>
@@ -2014,6 +2070,7 @@ const S = {
   showExcluded: false,       // Tab 2: include excluded ings in stats & matrix
   tab3HideOwnedIngs: false,  // Tab 3 radial: hide ings already owned (inner ring collapse)
   tab3HideSuperseded: false, // Tab 3 radial: hide same-type recipes scoring < highest-cookable
+  recMode: 'most',           // Recommender mode: 'most' (most new recipes) | 'highest' (next-higher-tier)
 };
 
 const TYPE_META = {
@@ -2318,7 +2375,7 @@ function renderRadialGraph(svg) {
     !r.is_placeholder && r.tier_bonus >= S.minTier
   );
 
-  // Determine "superseded" status per recipe (within its type)
+  // Determine "superseded" status per type (highest-cookable score wins)
   const supersededByType = { curry: -1, salad: -1, dessert: -1 };
   if (S.tab3HideSuperseded) {
     for (const r of tierFiltered) {
@@ -2330,34 +2387,57 @@ function renderRadialGraph(svg) {
     }
   }
 
-  // Layout
-  const W = 800, H = 800;
-  const cx = W / 2, cy = H / 2;
-  const r1 = 160;       // ing ring
-  const r2 = 290;       // recipe ring
-  const rIcon = 332;    // recipe icon radius
-  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-
-  // Ing positions: evenly around the inner ring, start from top, clockwise
-  const ingPos = ingredients.map((ing, i) => {
-    const angle = -Math.PI / 2 + (2 * Math.PI * i / ingredients.length);
-    return { x: cx + r1 * Math.cos(angle), y: cy + r1 * Math.sin(angle), angle, ing };
+  // Decide which ings + recipes are VISIBLE; positions recomputed from visible set
+  // (this is the "true collapse" — items don't disappear leaving gaps, they
+  // re-space evenly with fewer of them).
+  const visibleIngIdxs = [];
+  ingredients.forEach((_, i) => {
+    if (S.tab3HideOwnedIngs && S.owned.has(i)) return;
+    visibleIngIdxs.push(i);
   });
 
-  // Recipe positions: 3 sectors, each spanning 120° starting from top
   const typeOrder = ['curry', 'salad', 'dessert'];
   const grouped = Object.fromEntries(typeOrder.map(t => [t, []]));
-  for (const r of tierFiltered) grouped[r.type_en].push(r);
+  for (const r of tierFiltered) {
+    const ingIdxs = r.ingredients.map(x => ingByName[x.name]);
+    const hasExcluded = ingIdxs.some(idx => S.excluded.has(idx));
+    if (hasExcluded) continue;             // excluded recipes always out
+    const allOwned = ingIdxs.every(idx => S.owned.has(idx));
+    if (S.tab3HideSuperseded && !allOwned && r.score_final < supersededByType[r.type_en]) continue;
+    grouped[r.type_en].push(r);
+  }
   for (const t of typeOrder) grouped[t].sort((a, b) => b.score_final - a.score_final);
 
-  const SECTOR_START = -Math.PI / 2;            // 12 o'clock
+  // Layout — viewBox is the panel's actual aspect, icons sized big to fill it
+  const W = 800, H = 800;
+  const cx = W / 2, cy = H / 2;
+  const r1 = 230;       // ing ring — pushed outward, leaves smaller centre void
+  const r2 = 350;       // recipe ring inner
+  const rIcon = 380;    // recipe icon radius
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+
+  // Ing positions: based on VISIBLE ings (re-spaced evenly)
+  const ingPos = {};
+  visibleIngIdxs.forEach((iIdx, slot) => {
+    const angle = -Math.PI / 2 + (2 * Math.PI * slot / visibleIngIdxs.length);
+    ingPos[iIdx] = {
+      x: cx + r1 * Math.cos(angle),
+      y: cy + r1 * Math.sin(angle),
+      angle,
+      ing: ingredients[iIdx],
+    };
+  });
+
+  // Recipe positions: 3 sectors, each 120° starting top, recipes within sector
+  // are re-spaced based on VISIBLE count (true collapse)
+  const SECTOR_START = -Math.PI / 2;
   const SECTOR_WIDTH = (2 * Math.PI) / 3;
   const recPos = {};
   typeOrder.forEach((t, sIdx) => {
     const list = grouped[t];
     if (!list.length) return;
     const sectorBase = SECTOR_START + sIdx * SECTOR_WIDTH;
-    const margin = SECTOR_WIDTH * 0.06;
+    const margin = SECTOR_WIDTH * 0.07;
     const usable = SECTOR_WIDTH - 2 * margin;
     const step = list.length > 1 ? usable / (list.length - 1) : 0;
     list.forEach((r, i) => {
@@ -2411,19 +2491,20 @@ function renderRadialGraph(svg) {
   edgeLayer.setAttribute('id', 'g-edges');
   svg.appendChild(edgeLayer);
 
+  // Edges: only between visible ings and visible recipes
   for (const r of tierFiltered) {
     const rp = recPos[r.name_en];
     if (!rp) continue;
     for (const ing of r.ingredients) {
       const iIdx = ingByName[ing.name];
       const ip = ingPos[iIdx];
+      if (!ip) continue;       // ing not visible (hidden-owned), skip edge
       const path = document.createElementNS(ns, 'path');
-      // Slight curve through the center bias
       path.setAttribute('d', `M${ip.x},${ip.y} Q${cx},${cy} ${rp.x},${rp.y}`);
       path.classList.add('g-edge');
       path.dataset.iidx = iIdx;
       path.dataset.rid = r.name_en;
-      if (S.owned.has(iIdx) && !r.ingredients.some(x => S.excluded.has(ingByName[x.name]))) {
+      if (S.owned.has(iIdx)) {
         const allOwned = r.ingredients.every(x => S.owned.has(ingByName[x.name]));
         path.classList.add(allOwned ? 'cookable-perm' : 'owned-perm');
       }
@@ -2431,63 +2512,57 @@ function renderRadialGraph(svg) {
     }
   }
 
-  // Ing nodes (inner ring)
-  ingredients.forEach((ing, i) => {
-    const pos = ingPos[i];
+  // Ing nodes — only visible
+  visibleIngIdxs.forEach(iIdx => {
+    const pos = ingPos[iIdx];
+    const ing = ingredients[iIdx];
     const g = document.createElementNS(ns, 'g');
     let cls = 'g-ing-node';
-    if (S.owned.has(i))    cls += ' owned';
-    if (S.excluded.has(i)) cls += ' excluded';
-    if (S.tab3HideOwnedIngs && S.owned.has(i)) cls += ' hidden-by-owned';
+    if (S.owned.has(iIdx))    cls += ' owned';
+    if (S.excluded.has(iIdx)) cls += ' excluded';
     g.setAttribute('class', cls);
-    g.dataset.iidx = i;
+    g.dataset.iidx = iIdx;
     g.setAttribute('transform', `translate(${pos.x},${pos.y})`);
 
     const circle = document.createElementNS(ns, 'circle');
     circle.setAttribute('class', 'g-ing-circle');
-    circle.setAttribute('r', 17);
+    circle.setAttribute('r', 22);
     g.appendChild(circle);
 
     const img = document.createElementNS(ns, 'image');
     img.setAttribute('class', 'g-ing-img');
     img.setAttribute('href', `assets/icons/ingredients/${ing.key}.png`);
-    img.setAttribute('x', -13); img.setAttribute('y', -13);
-    img.setAttribute('width', 26); img.setAttribute('height', 26);
+    img.setAttribute('x', -18); img.setAttribute('y', -18);
+    img.setAttribute('width', 36); img.setAttribute('height', 36);
     g.appendChild(img);
 
-    // Place label radially outward from center (so labels don't overlap the circle)
-    const labelR = r1 - 30;
-    const labelX = (r1 - labelR > 0) ? -((r1 - labelR) * Math.cos(pos.angle)) : 0;
-    const labelY = (r1 - labelR > 0) ? -((r1 - labelR) * Math.sin(pos.angle)) : 0;
+    // Place label OUTSIDE the ing circle, radially outward from centre
+    const labelOffset = 36;
+    const labelX = labelOffset * Math.cos(pos.angle);
+    const labelY = labelOffset * Math.sin(pos.angle) + 4;
     const label = document.createElementNS(ns, 'text');
     label.setAttribute('class', 'g-ing-label');
-    label.setAttribute('x', labelX); label.setAttribute('y', labelY + 4);
+    label.setAttribute('x', labelX); label.setAttribute('y', labelY);
     label.textContent = ing.name;
     g.appendChild(label);
 
-    g.addEventListener('mouseenter', () => highlightIngOnGraph(i));
+    g.addEventListener('mouseenter', () => highlightIngOnGraph(iIdx));
     g.addEventListener('mouseleave', () => clearGraphHighlight());
     g.addEventListener('click', () => openPopover());
     svg.appendChild(g);
   });
 
-  // Recipe nodes (outer ring) + icons
+  // Recipe nodes (outer ring) + icons — only visible
   for (const t of typeOrder) {
     for (const r of grouped[t]) {
       const pos = recPos[r.name_en];
       const ingIdxs = r.ingredients.map(x => ingByName[x.name]);
-      const hasExcluded = ingIdxs.some(idx => S.excluded.has(idx));
       const missing = ingIdxs.filter(idx => !S.owned.has(idx));
-      const allOwned = missing.length === 0 && !hasExcluded;
+      const allOwned = missing.length === 0;
 
       let cls = `g-recipe-node ${t}`;
-      if (hasExcluded) cls += ' hidden-by-exclude';
-      else if (allOwned) cls += ' cookable';
+      if (allOwned) cls += ' cookable';
       else if (missing.length <= 2 && ingIdxs.length - missing.length > 0) cls += ' near-cookable';
-      // Hide-superseded: same-type recipe whose score < highest-cookable-in-this-type
-      if (S.tab3HideSuperseded && !allOwned && r.score_final < supersededByType[t]) {
-        cls += ' hidden-superseded';
-      }
 
       const g = document.createElementNS(ns, 'g');
       g.setAttribute('class', cls);
@@ -2497,23 +2572,24 @@ function renderRadialGraph(svg) {
 
       const ring = document.createElementNS(ns, 'circle');
       ring.setAttribute('class', 'g-rec-ring');
-      ring.setAttribute('r', 11);
+      ring.setAttribute('r', 14);
       g.appendChild(ring);
 
       const c = document.createElementNS(ns, 'circle');
       c.setAttribute('class', 'g-rec-circle');
-      c.setAttribute('r', 7);
+      c.setAttribute('r', 8);
       g.appendChild(c);
 
       // Recipe icon, placed outside the ring at rIcon
       if (r.name_en) {
         const iconDx = pos.ix - pos.x;
         const iconDy = pos.iy - pos.y;
+        const iconSize = 32;
         const img = document.createElementNS(ns, 'image');
         img.setAttribute('class', 'g-rec-icon');
         img.setAttribute('href', `assets/icons/recipes/${r.name_en}.png`);
-        img.setAttribute('x', iconDx - 11); img.setAttribute('y', iconDy - 11);
-        img.setAttribute('width', 22); img.setAttribute('height', 22);
+        img.setAttribute('x', iconDx - iconSize/2); img.setAttribute('y', iconDy - iconSize/2);
+        img.setAttribute('width', iconSize); img.setAttribute('height', iconSize);
         g.appendChild(img);
       }
 
@@ -2673,7 +2749,7 @@ function buildRecommender() {
   const recList = document.getElementById('rec-list');
 
   if (S.owned.size === 0) {
-    recList.innerHTML = '<div class="rec-empty">⬆ 先點選你已有的食材</div>';
+    recList.innerHTML = '<div class="rec-empty">⬆ 先在 ⚙ 食材設定打勾你已有的食材</div>';
     return;
   }
   if (S.owned.size >= 19) {
@@ -2681,98 +2757,125 @@ function buildRecommender() {
     return;
   }
 
-  const activeRecipes = recipes.filter(r =>
-    !r.is_placeholder && r.tier_bonus >= S.minTier
-  );
-
-  // Build name→index map once (avoid O(n) findIndex in inner loop)
   const ingByName = Object.fromEntries(ingredients.map((x, i) => [x.name, i]));
-
-  function completion(ownedSet, recipe) {
-    return recipe.ingredients.every(ing => ownedSet.has(ingByName[ing.name]));
-  }
-  function fracCompletion(ownedSet, recipe) {
-    const total = recipe.ingredients.length;
-    if (!total) return 0;
-    const have = recipe.ingredients.filter(ing => ownedSet.has(ingByName[ing.name])).length;
-    return have / total;
-  }
+  const activeRecipes = recipes.filter(r =>
+    !r.is_placeholder && r.tier_bonus >= S.minTier &&
+    !r.ingredients.some(ing => S.excluded.has(ingByName[ing.name]))
+  );
 
   // Score each candidate ingredient
   const candidates = [];
   for (let ci = 0; ci < 19; ci++) {
-    if (S.owned.has(ci)) continue;
-    const trial = new Set(S.owned);
-    trial.add(ci);
+    if (S.owned.has(ci) || S.excluded.has(ci)) continue;
+    const trial = new Set(S.owned); trial.add(ci);
 
-    let binaryGain = 0;
-    let fracGain = 0;
-    const newRecipes = [];
+    const newCookable = [];  // recipes that become cookable with this ing
+    const newNear = [];      // recipes that become near-cookable (1-2 missing) with this ing
 
     for (const r of activeRecipes) {
-      const wasDone = completion(S.owned, r);
-      const nowDone = completion(trial, r);
-      if (!wasDone && nowDone) { binaryGain++; newRecipes.push(r); }
-      fracGain += (fracCompletion(trial, r) - fracCompletion(S.owned, r)) * (r.score_final / 10000);
+      if (!r.ingredients.some(ing => ingByName[ing.name] === ci)) continue;  // ing not in recipe
+      const wasOwned = r.ingredients.every(ing => S.owned.has(ingByName[ing.name]));
+      if (wasOwned) continue;  // already cookable
+      const remainingMissing = r.ingredients.filter(ing => !trial.has(ingByName[ing.name])).length;
+      if (remainingMissing === 0) {
+        newCookable.push(r);
+      } else if (remainingMissing <= 2) {
+        const owns = r.ingredients.length - remainingMissing - 1;  // -1 because this ing is the new one
+        if (owns >= 0) newNear.push({ recipe: r, stillMissing: remainingMissing });
+      }
     }
 
-    candidates.push({ idx: ci, binaryGain, fracGain, newRecipes });
+    const maxNewTier = Math.max(0, ...newCookable.map(r => r.tier_bonus));
+    const maxNewScore = Math.max(0, ...newCookable.map(r => r.score_final));
+    const weightedGain = newCookable.reduce((sum, r) => sum + r.score_final / 10000, 0);
+
+    candidates.push({
+      idx: ci, newCookable, newNear,
+      binaryGain: newCookable.length,
+      maxNewTier, maxNewScore, weightedGain,
+    });
   }
 
-  candidates.sort((a, b) => b.binaryGain - a.binaryGain || b.fracGain - a.fracGain);
+  // Sort by mode
+  if (S.recMode === 'highest') {
+    candidates.sort((a, b) =>
+      b.maxNewTier - a.maxNewTier ||
+      b.maxNewScore - a.maxNewScore ||
+      b.binaryGain - a.binaryGain
+    );
+  } else { // 'most' default
+    candidates.sort((a, b) =>
+      b.binaryGain - a.binaryGain ||
+      b.weightedGain - a.weightedGain ||
+      b.newNear.length - a.newNear.length
+    );
+  }
+
+  const top = candidates.slice(0, 3);
+  const anyDirect = top[0]?.newCookable.length > 0;
 
   recList.innerHTML = '';
-  const top = candidates.slice(0, 3);
-  const anyGain = top[0].binaryGain > 0 || top[0].fracGain > 0.001;
-
-  if (!anyGain) {
-    recList.innerHTML = '<div class="rec-empty">此階級所有可解料理已能解鎖。試試調高階級篩選。</div>';
+  if (!anyDirect) {
+    // Fall back: sort by near-cookable potential
+    const nearSorted = [...candidates].sort((a, b) => b.newNear.length - a.newNear.length);
+    const fallbackTop = nearSorted.slice(0, 3);
+    if (fallbackTop.every(c => c.newNear.length === 0)) {
+      recList.innerHTML = '<div class="rec-empty">此階級下沒有食材能讓你直接解鎖更多料理。試試調高階級篩選或改變模式。</div>';
+      return;
+    }
+    recList.innerHTML = '<div style="font-size:10.5px;color:var(--text-muted);margin-bottom:6px;">目前沒有食材能「立即解鎖」料理。以下是「最能讓你接近完成」的食材：</div>';
+    fallbackTop.forEach((c, rank) => recList.appendChild(buildRecCard(c, rank, ingredients[c.idx])));
     return;
   }
 
-  // If all binary gains are 0, show frac mode header
-  const allBinaryZero = top.every(c => c.binaryGain === 0);
-  if (allBinaryZero) {
-    recList.innerHTML = '<div class="rec-empty" style="text-align:left;margin-bottom:6px;">還差多道食材才能完成料理。以下推薦「最能提升完成度」的食材：</div>';
-  }
+  top.forEach((c, rank) => recList.appendChild(buildRecCard(c, rank, ingredients[c.idx])));
+}
 
-  top.forEach((c, rank) => {
-    const ing = ingredients[c.idx];
-    const card = document.createElement('div');
-    card.className = 'rec-card';
-    card.dataset.iidx = c.idx;
+function buildRecCard(c, rank, ing) {
+  const card = document.createElement('div');
+  card.className = 'rec-card';
+  card.dataset.iidx = c.idx;
 
-    const gainLabel = c.binaryGain > 0
-      ? `<span class="rec-gain">+${c.binaryGain} 道</span>`
-      : `<span class="rec-gain" style="color:var(--accent-bright)">+${c.fracGain.toFixed(1)} 進度</span>`;
+  const typeLabel = { curry: '咖', salad: '沙', dessert: '點' };
 
-    const recipePreview = c.newRecipes.slice(0, 5)
-      .map(r => `<span class="${typeClass(r.type_en)}">${r.name}</span>`)
-      .join('');
-    const more = c.newRecipes.length > 5 ? `<span>…+${c.newRecipes.length - 5}</span>` : '';
-    const recipeOrProgress = c.newRecipes.length > 0
-      ? `<div class="rec-recipes">${recipePreview}${more}</div>`
-      : `<div class="rec-recipes" style="color:var(--text-muted)">提升 ${(c.fracGain * 10000 / Math.max(activeRecipes.length, 1)).toFixed(0)}% 平均完成度</div>`;
+  const unlockHTML = c.newCookable.length === 0
+    ? '<span class="rec-empty-mini">無立即解鎖</span>'
+    : c.newCookable.slice(0, 6).map(r =>
+        `<span class="rec-recipe-chip"><span class="type-tag ${r.type_en}">${typeLabel[r.type_en]}</span>${r.name}</span>`
+      ).join('') + (c.newCookable.length > 6 ? `<span class="rec-empty-mini">…+${c.newCookable.length-6}</span>` : '');
 
-    card.innerHTML = `
-      <div class="rec-card-header">
-        <div class="rec-rank">${rank + 1}</div>
-        <span class="rec-ing-name">${ingIconHTML(ing, 18)} ${ing.name}</span>
-        ${gainLabel}
-      </div>
-      ${recipeOrProgress}`;
+  const supportHTML = c.newNear.length === 0
+    ? '<span class="rec-empty-mini">無</span>'
+    : c.newNear.slice(0, 6).map(n =>
+        `<span class="rec-recipe-chip"><span class="type-tag ${n.recipe.type_en}">${typeLabel[n.recipe.type_en]}</span>${n.recipe.name} <span class="miss-after">差${n.stillMissing}</span></span>`
+      ).join('') + (c.newNear.length > 6 ? `<span class="rec-empty-mini">…+${c.newNear.length-6}</span>` : '');
 
-    card.addEventListener('mouseenter', () => {
-      highlightIngredient(c.idx);
-      ghostPreviewIng(c.idx);  // Map shows what would unlock if you took this ing
-    });
-    card.addEventListener('mouseleave', () => {
-      clearHighlight();
-      clearGhostPreview();
-    });
-    card.addEventListener('click', () => openPopover());
-    recList.appendChild(card);
+  const gainLabel = c.newCookable.length > 0
+    ? `<span class="rec-gain">+${c.newCookable.length} 道${c.maxNewTier > 0 ? ` · 最高 +${(c.maxNewTier*100).toFixed(0)}%` : ''}</span>`
+    : `<span class="rec-gain" style="color:var(--accent-bright)">接近 ${c.newNear.length} 道</span>`;
+
+  card.innerHTML = `
+    <div class="rec-card-header">
+      <div class="rec-rank">${rank + 1}</div>
+      <span class="rec-ing-name">${ingIconHTML(ing, 18)} ${ing.name}</span>
+      ${gainLabel}
+    </div>
+    <div class="rec-section-label">立即解鎖</div>
+    <div class="rec-unlock-list">${unlockHTML}</div>
+    <div class="rec-section-label">後援（差 1-2 種）</div>
+    <div class="rec-support-list">${supportHTML}</div>
+  `;
+
+  card.addEventListener('mouseenter', () => {
+    highlightIngredient(c.idx);
+    ghostPreviewIng(c.idx);
   });
+  card.addEventListener('mouseleave', () => {
+    clearHighlight();
+    clearGhostPreview();
+  });
+  card.addEventListener('click', () => openPopover());
+  return card;
 }
 
 /* ── Planner ────────────────────────────────────────────────────── */
@@ -2882,6 +2985,7 @@ function saveHash() {
   if (S.showExcluded) params.set('showExcl', '1');
   if (S.tab3HideOwnedIngs) params.set('hideOwn', '1');
   if (S.tab3HideSuperseded) params.set('hideSup', '1');
+  if (S.recMode !== 'most') params.set('recMode', S.recMode);
   const hash = params.toString();
   history.replaceState(null, '', hash ? '#' + hash : window.location.pathname);
 }
@@ -2906,6 +3010,7 @@ function loadHash() {
   if (params.get('showExcl'))   S.showExcluded = params.get('showExcl') === '1';
   if (params.get('hideOwn'))    S.tab3HideOwnedIngs = params.get('hideOwn') === '1';
   if (params.get('hideSup'))    S.tab3HideSuperseded = params.get('hideSup') === '1';
+  if (params.get('recMode'))    S.recMode = params.get('recMode');
 }
 
 /* ── Tab routing ─────────────────────────────────────────────────── */
@@ -3030,6 +3135,17 @@ function initExploreInfo() {
   };
   document.getElementById('rec-info-btn')?.addEventListener('click', () => toggle('rec-explainer'));
   document.getElementById('plan-info-btn')?.addEventListener('click', () => toggle('plan-explainer'));
+
+  // Recommender mode toggle
+  document.querySelectorAll('#rec-mode button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.mode === S.recMode);
+    btn.addEventListener('click', () => {
+      S.recMode = btn.dataset.mode;
+      document.querySelectorAll('#rec-mode button').forEach(b => b.classList.toggle('active', b === btn));
+      buildRecommender();
+      saveHash();
+    });
+  });
 
   // Tab 3 radial-graph toggles
   const hideOwned = document.getElementById('tab3-hide-owned');
