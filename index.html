@@ -2381,11 +2381,10 @@ function renderArcGraph(svg) {
     }
   }
 
-  // Summary — count per-SVG to avoid double-counting across both instances
+  // Summary — only update THIS SVG's own summary node (avoid Tab 2 overwriting Tab 3)
   const cookable = svg.querySelectorAll('.g-recipe-node.cookable').length;
   const near = svg.querySelectorAll('.g-recipe-node.near-cookable').length;
   const summaryText = `可煮 ${cookable} · 差 1-2 種 ${near} · hover 看連線`;
-  document.getElementById('map-state-summary')?.replaceChildren(document.createTextNode(summaryText));
   document.getElementById('map-state-summary-tab2')?.replaceChildren(document.createTextNode(summaryText));
 }
 
@@ -2432,15 +2431,17 @@ function renderRadialGraph(svg) {
     const ingIdxs = r.ingredients.map(x => ingByName[x.name]);
     const hasExcluded = ingIdxs.some(idx => S.excluded.has(idx));
     if (hasExcluded) continue;             // excluded recipes always out
-    const allOwned = ingIdxs.every(idx => S.owned.has(idx));
-    if (S.tab3HideSuperseded && !allOwned && r.score_final < supersededByType[r.type_en]) continue;
+    // hide-superseded: drop ANY recipe whose score < max-cookable-of-its-type,
+    // regardless of whether IT is cookable or not. The intent is "show only
+    // recipes worth aiming for". At full ownership only the top-per-type remain.
+    if (S.tab3HideSuperseded && r.score_final < supersededByType[r.type_en]) continue;
     grouped[r.type_en].push(r);
   }
   for (const t of typeOrder) grouped[t].sort((a, b) => b.score_final - a.score_final);
 
   // Adaptive layout — both rings AND icons scale based on visible item count.
-  // Full state: r1=230, r2=370. Collapsed: rings shrink, icons grow.
-  const W = 900, H = 900;
+  // viewBox 1000×1000 gives room for sector labels beyond recipe icons.
+  const W = 1000, H = 1000;
   const cx = W / 2, cy = H / 2;
   const nIngs = visibleIngIdxs.length;
   const totalRec = typeOrder.reduce((s, t) => s + grouped[t].length, 0);
@@ -2523,10 +2524,10 @@ function renderRadialGraph(svg) {
     path.setAttribute('opacity', '0.25');
     arcLayer.appendChild(path);
 
-    // Type label, placed mid-sector at slightly larger radius (within viewBox)
+    // Type label, placed mid-sector well outside the recipe-icon ring
     const mid = base + SECTOR_WIDTH / 2;
-    const lx = cx + (r2 + 70) * Math.cos(mid);
-    const ly = cy + (r2 + 70) * Math.sin(mid);
+    const lx = cx + (rIcon + 80) * Math.cos(mid);
+    const ly = cy + (rIcon + 80) * Math.sin(mid);
     const lbl = document.createElementNS(ns, 'text');
     lbl.setAttribute('x', lx); lbl.setAttribute('y', ly);
     lbl.setAttribute('class', `g-type-label ${t}`);
