@@ -2418,8 +2418,10 @@ function renderRadialGraph(svg) {
   // Decide which ings + recipes are VISIBLE; positions recomputed from visible set
   // (this is the "true collapse" — items don't disappear leaving gaps, they
   // re-space evenly with fewer of them).
+  // Excluded ings always hidden from Map (popover-only visibility)
   const visibleIngIdxs = [];
   ingredients.forEach((_, i) => {
+    if (S.excluded.has(i)) return;                          // excluded → invisible here
     if (S.tab3HideOwnedIngs && S.owned.has(i)) return;
     visibleIngIdxs.push(i);
   });
@@ -2436,12 +2438,33 @@ function renderRadialGraph(svg) {
   }
   for (const t of typeOrder) grouped[t].sort((a, b) => b.score_final - a.score_final);
 
-  // Layout — bigger viewBox so sector labels at r2+60 stay inside bounds
+  // Adaptive layout — both rings AND icons scale based on visible item count.
+  // Full state: r1=230, r2=370. Collapsed: rings shrink, icons grow.
   const W = 900, H = 900;
   const cx = W / 2, cy = H / 2;
-  const r1 = 230;       // ing ring
-  const r2 = 370;       // recipe ring inner
-  const rIcon = 405;    // recipe icon radius
+  const nIngs = visibleIngIdxs.length;
+  const totalRec = typeOrder.reduce((s, t) => s + grouped[t].length, 0);
+
+  // Independent linear interpolation:
+  //  r1 from 90 (few ings) → 230 (all 19)
+  //  r2 from r1+50 (few recipes) → 370 (all 76)
+  const r1Min = 90, r1Max = 230;
+  const r1 = Math.round(r1Min + (r1Max - r1Min) * (nIngs / 19));
+
+  const r2Min = r1 + 50, r2Max = 370;
+  const r2 = Math.round(r2Min + (r2Max - r2Min) * (totalRec / 76));
+
+  const rIcon = r2 + 28;
+
+  // Icon sizes scale inverse to ring density:
+  //  ingIcon 36 (all 19) → 60 (only a few)
+  //  recIcon 22 (all 76) → 44 (only a few)
+  const ingIconSize = Math.round(36 + (1 - nIngs / 19) * 24);
+  const recIconSize = Math.round(22 + (1 - totalRec / 76) * 22);
+  const ingCircleR = Math.round(ingIconSize / 2 + 4);
+  const recRingR = Math.round(recIconSize / 2 + 4);
+  const recCircleR = Math.max(4, Math.round(recIconSize / 4 + 2));
+
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.classList.toggle('hide-labels', S.tab3HideLabels);
 
@@ -2555,18 +2578,18 @@ function renderRadialGraph(svg) {
 
     const circle = document.createElementNS(ns, 'circle');
     circle.setAttribute('class', 'g-ing-circle');
-    circle.setAttribute('r', 22);
+    circle.setAttribute('r', ingCircleR);
     g.appendChild(circle);
 
     const img = document.createElementNS(ns, 'image');
     img.setAttribute('class', 'g-ing-img');
     img.setAttribute('href', `assets/icons/ingredients/${ing.key}.png`);
-    img.setAttribute('x', -18); img.setAttribute('y', -18);
-    img.setAttribute('width', 36); img.setAttribute('height', 36);
+    img.setAttribute('x', -ingIconSize/2); img.setAttribute('y', -ingIconSize/2);
+    img.setAttribute('width', ingIconSize); img.setAttribute('height', ingIconSize);
     g.appendChild(img);
 
     // Place label OUTSIDE the ing circle, radially outward from centre
-    const labelOffset = 36;
+    const labelOffset = ingCircleR + 14;
     const labelX = labelOffset * Math.cos(pos.angle);
     const labelY = labelOffset * Math.sin(pos.angle) + 4;
     const label = document.createElementNS(ns, 'text');
@@ -2577,7 +2600,7 @@ function renderRadialGraph(svg) {
 
     g.addEventListener('mouseenter', () => highlightIngOnGraph(iIdx));
     g.addEventListener('mouseleave', () => clearGraphHighlight());
-    g.addEventListener('click', () => cycleIngState(iIdx));   // direct edit from Tab 3
+    g.addEventListener('click', () => toggleOwned(iIdx));  // map click: owned ↔ neutral (no exclude)
     svg.appendChild(g);
   });
 
@@ -2601,19 +2624,19 @@ function renderRadialGraph(svg) {
 
       const ring = document.createElementNS(ns, 'circle');
       ring.setAttribute('class', 'g-rec-ring');
-      ring.setAttribute('r', 14);
+      ring.setAttribute('r', recRingR);
       g.appendChild(ring);
 
       const c = document.createElementNS(ns, 'circle');
       c.setAttribute('class', 'g-rec-circle');
-      c.setAttribute('r', 8);
+      c.setAttribute('r', recCircleR);
       g.appendChild(c);
 
-      // Recipe icon, smaller to avoid sector overlap (was 32, caused 點心 crowding)
+      // Recipe icon — scales with available space
       if (r.name_en) {
         const iconDx = pos.ix - pos.x;
         const iconDy = pos.iy - pos.y;
-        const iconSize = 24;
+        const iconSize = recIconSize;
         const img = document.createElementNS(ns, 'image');
         img.setAttribute('class', 'g-rec-icon');
         img.setAttribute('href', `assets/icons/recipes/${r.name_en}.png`);
@@ -2747,7 +2770,8 @@ function cycleIngState(i) {
   saveHash();
 }
 
-// Tab-3 legacy: only toggles owned (no exclusion state)
+// Simple toggle for places where exclude shouldn't be reachable (map clicks,
+// recommendation cards, planner badges). Excluded state only via popover.
 function toggleOwned(i) {
   if (S.owned.has(i)) {
     S.owned.delete(i);
@@ -2755,7 +2779,7 @@ function toggleOwned(i) {
   } else {
     S.owned.add(i);
     S.ownedOrder.push(i);
-    S.excluded.delete(i);
+    S.excluded.delete(i);    // un-exclude if it was excluded
   }
   refreshAll();
   saveHash();
@@ -2921,7 +2945,7 @@ function buildRecCard(c, rank, ing) {
     clearHighlight();
     clearGhostPreview();
   });
-  card.addEventListener('click', () => cycleIngState(c.idx));  // direct add from recommender
+  card.addEventListener('click', () => toggleOwned(c.idx));  // rec card: simply add to owned
   return card;
 }
 
@@ -2974,7 +2998,7 @@ function buildPlanner() {
     badge.className = `plan-badge ${cls}`;
     badge.innerHTML = `${ingIconHTML(ing, 14)} ${ing.name}`;
     badge.style.cursor = 'pointer';
-    badge.addEventListener('click', () => cycleIngState(i));  // direct edit from plan badge
+    badge.addEventListener('click', () => toggleOwned(i));  // plan badge: simply add to owned
     badge.addEventListener('mouseenter', () => {
       highlightIngredient(i);
       if (!S.owned.has(i)) ghostPreviewIng(i);  // only preview missing ings
@@ -3220,13 +3244,16 @@ function initPopover() {
   document.getElementById('popover-reset-btn').addEventListener('click', resetIngState);
   document.getElementById('tier-readout').addEventListener('click', () => openPopover());
 
-  // Click outside popover (anywhere on the page) closes it
+  // Click outside popover closes it. Use composedPath to detect "click was
+  // inside popover" even if the clicked element (e.g. a chip) gets removed
+  // from the DOM by the click handler (refreshAll re-renders chips).
   document.addEventListener('click', e => {
     const pop = document.getElementById('popover');
     if (!pop.classList.contains('visible')) return;
-    if (pop.contains(e.target)) return;
-    // Trigger buttons that should open / keep popover open
-    if (e.target.closest('#open-settings, #tier-readout, .ing-state-mini')) return;
+    const path = (typeof e.composedPath === 'function') ? e.composedPath() : [];
+    if (path.includes(pop)) return;                                 // click was inside popover
+    if (path.some(el => el?.id === 'open-settings' || el?.id === 'tier-readout')) return;
+    if (path.some(el => el?.classList?.contains?.('ing-state-mini'))) return;
     closePopover();
   });
 
