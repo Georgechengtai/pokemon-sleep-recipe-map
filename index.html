@@ -2692,9 +2692,9 @@ function renderRadialGraph(svg) {
     path.setAttribute('opacity', '0.25');
     arcLayer.appendChild(path);
 
-    // Type label, well outside the icon ring
+    // Type label, well outside the icon ring (large gap since 16px text is wider)
     const mid = base + SECTOR_WIDTH / 2;
-    const labelGap = recIconSize / 2 + 45;
+    const labelGap = recIconSize / 2 + 70;
     const lx = cx + (rIcon + labelGap) * Math.cos(mid);
     const ly = cy + (rIcon + labelGap) * Math.sin(mid);
     const lbl = document.createElementNS(ns, 'text');
