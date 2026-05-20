@@ -1756,6 +1756,15 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
 .rec-recipe-chip .miss-after { color: var(--accent-bright); font-weight: 700; }
 .rec-card .rec-empty-mini { color: var(--text-muted); font-style: italic; font-size: 10px; padding: 2px 4px; }
 
+.rec-card .rec-anchor { padding: 4px 4px 0; font-size: 11.5px; }
+.rec-card .rec-mode-explain {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  padding: 3px 4px 0;
+  line-height: 1.4;
+  font-style: italic;
+}
+
 #rec-explainer, #plan-explainer {
   background: var(--surface2);
   border-left: 3px solid var(--accent);
@@ -1973,20 +1982,20 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
       </div>
       <div class="panel-body">
         <div id="rec-explainer" hidden>
-          <p><b>最多新料理</b>：解鎖最多道（不分系列）。適合「我要可煮品項數最大化」。</p>
-          <p><b>下一道高料理</b>：解鎖到目前最高的 tier 料理。適合「我要衝最高 +78%」。</p>
-          <p><b>補強弱系</b>：先看你三系列哪個可煮料理數最少，再推「最能補弱系」的食材。</p>
-          <p><b>最近距離</b>：哪個食材能讓你最接近完成（差最少種）一道料理 — 適合衝下一個 milestone。</p>
-          <p>卡片數字：<b>+N 道</b> 立即解鎖、<b>+X 能量</b> 總分加成、<b>再差 K 種</b> = 拿了這個後該後援料理還缺 K 種。</p>
-          <p>Hover 推薦 → Map 黃色虛線顯示「若拿這個會怎麼變」。</p>
+          <p>每個模式回答不同的玩家問題，卡片只顯示「該模式真正在乎」的數字：</p>
+          <p><b>多解料理</b>：「我想可煮品項變多」→ 顯示 <b>+N 道</b> 及最高分新料理</p>
+          <p><b>衝高分</b>：「我想煮到最高 tier」→ 顯示拿這個能煮到的<b>那一道</b>料理</p>
+          <p><b>補弱系</b>：自動偵測你最弱系列（咖/沙/點 取最少）→ 顯示對該系列的<b>新解鎖數</b></p>
+          <p><b>離完成最近</b>：「我想趕快做出下一道」→ 顯示「再差最少種」的那道料理</p>
+          <p>Hover 推薦 → Map 黃虛線顯示「若拿這個會怎麼變」。Click 直接加進已有食材。</p>
         </div>
         <div class="rec-mode-bar">
           <span class="rec-mode-label">模式</span>
           <div class="btn-group" id="rec-mode">
-            <button data-mode="most" class="active">最多新料理</button>
-            <button data-mode="highest">下一道高料理</button>
-            <button data-mode="worst-type">補強弱系</button>
-            <button data-mode="closest">最近距離</button>
+            <button data-mode="most" class="active" title="解鎖最多道新料理（不分系列）">多解料理</button>
+            <button data-mode="highest" title="解鎖到目前能達到的最高 tier 料理">衝高分</button>
+            <button data-mode="worst-type" title="補強你目前可煮料理最少的系列（咖哩/沙拉/點心 取最弱）">補弱系</button>
+            <button data-mode="closest" title="讓你最接近完成下一道料理（再差最少種）">離完成最近</button>
           </div>
         </div>
         <div id="rec-list" class="rec-list-pad">先在 ⚙ 食材設定打勾你已有的食材</div>
@@ -2930,45 +2939,84 @@ function buildRecommender() {
     return;
   }
 
-  top.forEach((c, rank) => recList.appendChild(buildRecCard(c, rank, ingredients[c.idx])));
+  const ctx = { worstTypes, cookByType };
+  top.forEach((c, rank) => recList.appendChild(buildRecCard(c, rank, ingredients[c.idx], ctx)));
 }
 
-function buildRecCard(c, rank, ing) {
+function buildRecCard(c, rank, ing, ctx) {
   const card = document.createElement('div');
   card.className = 'rec-card';
   card.dataset.iidx = c.idx;
 
-  const typeLabel = { curry: '咖', salad: '沙', dessert: '點' };
+  const typeLabelShort = { curry: '咖', salad: '沙', dessert: '點' };
+  const typeLabelFull = { curry: '咖哩', salad: '沙拉', dessert: '點心' };
+  const energyK = (v) => v >= 1000 ? `${(v/1000).toFixed(1)}k` : `${v}`;
+  const fmtRecipe = r => `<span class="rec-recipe-chip"><span class="type-tag ${r.type_en}">${typeLabelShort[r.type_en]}</span>${r.name}</span>`;
 
-  const unlockHTML = c.newCookable.length === 0
-    ? '<span class="rec-empty-mini">無立即解鎖</span>'
-    : c.newCookable.slice(0, 6).map(r =>
-        `<span class="rec-recipe-chip"><span class="type-tag ${r.type_en}">${typeLabel[r.type_en]}</span>${r.name}</span>`
-      ).join('') + (c.newCookable.length > 6 ? `<span class="rec-empty-mini">…+${c.newCookable.length-6}</span>` : '');
+  let headlineHTML, bodyHTML;
+  const mode = S.recMode || 'most';
 
-  const supportHTML = c.newNear.length === 0
-    ? '<span class="rec-empty-mini">無</span>'
-    : c.newNear.slice(0, 6).map(n =>
-        `<span class="rec-recipe-chip"><span class="type-tag ${n.recipe.type_en}">${typeLabel[n.recipe.type_en]}</span>${n.recipe.name} <span class="miss-after" title="拿了這個推薦之後，這道料理還缺 ${n.stillMissing} 種食材">再差${n.stillMissing}</span></span>`
-      ).join('') + (c.newNear.length > 6 ? `<span class="rec-empty-mini">…+${c.newNear.length-6}</span>` : '');
-
-  const energyKLabel = c.totalEnergy >= 1000
-    ? `+${(c.totalEnergy/1000).toFixed(1)}k 能量`
-    : `+${c.totalEnergy} 能量`;
-  const gainLabel = c.newCookable.length > 0
-    ? `<span class="rec-gain">+${c.newCookable.length} 道 · ${energyKLabel}${c.maxNewTier > 0 ? ` · 最高 +${(c.maxNewTier*100).toFixed(0)}%` : ''}</span>`
-    : `<span class="rec-gain" style="color:var(--accent-bright)">接近 ${c.newNear.length} 道</span>`;
+  if (mode === 'highest' && c.newCookable.length > 0) {
+    // Anchor: the single highest-score recipe this ing unlocks
+    const topR = c.newCookable.reduce((a, b) => a.score_final >= b.score_final ? a : b);
+    headlineHTML = `<span class="rec-gain">→ +${(topR.tier_bonus*100).toFixed(0)}% · ${topR.score_final.toLocaleString()} 分</span>`;
+    bodyHTML = `
+      <div class="rec-anchor">${fmtRecipe(topR)}</div>
+      <div class="rec-mode-explain">此食材能讓你煮到最高 tier 的一道${c.newCookable.length > 1 ? `（同時還解 +${c.newCookable.length - 1} 道）` : ''}</div>`;
+  }
+  else if (mode === 'worst-type' && ctx.worstTypes.length > 0) {
+    // Anchor: how many of WORST-type recipes this ing helps unlock
+    const wt = ctx.worstTypes[0];
+    const wtName = typeLabelFull[wt];
+    const inWorst = c.newCookable.filter(r => r.type_en === wt);
+    headlineHTML = `<span class="rec-gain">${wtName}：${ctx.cookByType[wt]} → ${ctx.cookByType[wt] + inWorst.length} 道</span>`;
+    const anchor = inWorst[0] || c.newCookable[0];
+    bodyHTML = `
+      <div class="rec-anchor">${anchor ? fmtRecipe(anchor) : '<span class="rec-empty-mini">無立即解鎖</span>'}</div>
+      <div class="rec-mode-explain">${wtName} 是你最弱的系列（${ctx.cookByType[wt]} 道可煮），這食材能補 +${inWorst.length} 道</div>`;
+  }
+  else if (mode === 'closest') {
+    // Anchor: the single recipe that becomes closest after this rec
+    const nearest = c.newNear.length > 0
+      ? c.newNear.reduce((a, b) => a.stillMissing <= b.stillMissing ? a : b)
+      : null;
+    if (nearest) {
+      headlineHTML = `<span class="rec-gain" style="color:var(--accent-bright)">→ 再差 ${nearest.stillMissing} 種</span>`;
+      bodyHTML = `
+        <div class="rec-anchor">${fmtRecipe(nearest.recipe)}</div>
+        <div class="rec-mode-explain">拿了這個之後，這道料理離完成只剩 ${nearest.stillMissing} 種食材</div>`;
+    } else if (c.newCookable.length > 0) {
+      const topR = c.newCookable[0];
+      headlineHTML = `<span class="rec-gain">直接解鎖</span>`;
+      bodyHTML = `
+        <div class="rec-anchor">${fmtRecipe(topR)}</div>
+        <div class="rec-mode-explain">拿了這個就能直接煮這道（沒有「更接近」的料理需要往前推）</div>`;
+    } else {
+      headlineHTML = `<span class="rec-empty-mini">無近距離料理</span>`;
+      bodyHTML = '';
+    }
+  }
+  else { // 'most' default
+    const topR = c.newCookable.length > 0
+      ? c.newCookable.reduce((a, b) => a.score_final >= b.score_final ? a : b)
+      : null;
+    headlineHTML = c.newCookable.length > 0
+      ? `<span class="rec-gain">+${c.newCookable.length} 道 · +${energyK(c.totalEnergy)} 能量</span>`
+      : `<span class="rec-gain" style="color:var(--accent-bright)">接近 ${c.newNear.length} 道</span>`;
+    bodyHTML = `
+      <div class="rec-anchor">${topR ? fmtRecipe(topR) : '<span class="rec-empty-mini">無立即解鎖</span>'}</div>
+      <div class="rec-mode-explain">${topR
+        ? `共解 ${c.newCookable.length} 道，分數最高一道 +${(topR.tier_bonus*100).toFixed(0)}%・${topR.score_final.toLocaleString()} 分`
+        : `這食材還不能直接解鎖料理，但會讓 ${c.newNear.length} 道接近完成`}</div>`;
+  }
 
   card.innerHTML = `
     <div class="rec-card-header">
       <div class="rec-rank">${rank + 1}</div>
-      <span class="rec-ing-name">${ingIconHTML(ing, 18)} ${ing.name}</span>
-      ${gainLabel}
+      <span class="rec-ing-name">${ingIconHTML(ing, 20)} ${ing.name}</span>
+      ${headlineHTML}
     </div>
-    <div class="rec-section-label">立即解鎖</div>
-    <div class="rec-unlock-list">${unlockHTML}</div>
-    <div class="rec-section-label">後援（差 1-2 種）</div>
-    <div class="rec-support-list">${supportHTML}</div>
+    ${bodyHTML}
   `;
 
   card.addEventListener('mouseenter', () => {
@@ -2979,7 +3027,7 @@ function buildRecCard(c, rank, ing) {
     clearHighlight();
     clearGhostPreview();
   });
-  card.addEventListener('click', () => toggleOwned(c.idx));  // rec card: simply add to owned
+  card.addEventListener('click', () => toggleOwned(c.idx));
   return card;
 }
 
