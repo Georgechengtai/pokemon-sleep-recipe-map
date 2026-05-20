@@ -1601,7 +1601,7 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
 .g-type-label {
   font-size: 11px;
   font-weight: 700;
-  text-anchor: start;
+  text-anchor: middle;
 }
 .g-type-label.curry   { fill: var(--curry); }
 .g-type-label.salad   { fill: var(--salad); }
@@ -2596,33 +2596,36 @@ function renderRadialGraph(svg) {
   }
   for (const t of typeOrder) grouped[t].sort((a, b) => b.score_final - a.score_final);
 
-  // Adaptive layout — both rings AND icons scale based on visible item count.
-  // viewBox 1000×1000 gives room for sector labels beyond recipe icons.
+  // Adaptive layout — invariants enforced so NO overlap in any configuration.
   const W = 1000, H = 1000;
   const cx = W / 2, cy = H / 2;
   const nIngs = visibleIngIdxs.length;
   const totalRec = typeOrder.reduce((s, t) => s + grouped[t].length, 0);
 
-  // Independent linear interpolation:
-  //  r1 from 90 (few ings) → 230 (all 19)
-  //  r2 from r1+50 (few recipes) → 370 (all 76)
-  const r1Min = 90, r1Max = 230;
-  const r1 = Math.round(r1Min + (r1Max - r1Min) * (nIngs / 19));
-
-  const r2Min = r1 + 50, r2Max = 370;
-  const r2 = Math.round(r2Min + (r2Max - r2Min) * (totalRec / 76));
-
-  const rIcon = r2 + 28;
-
-  // Icon sizes — quadratic scaling so collapse states show MUCH bigger icons.
-  // Recipe COLOURED DOT stays small (just a marker); the food ICON is what grows.
-  const ingRatio = 1 - nIngs / 19;
-  const recRatio = 1 - totalRec / 76;
+  // Icon sizes first (quadratic, drives gap math below)
+  const ingRatio = nIngs > 0 ? 1 - nIngs / 19 : 0;
+  const recRatio = totalRec > 0 ? 1 - totalRec / 76 : 0;
   const ingIconSize = Math.round(34 + ingRatio * ingRatio * 60);  // 34 → 94
   const recIconSize = Math.round(18 + recRatio * recRatio * 70);  // 18 → 88
   const ingCircleR = Math.round(ingIconSize / 2 + 4);
-  const recCircleR = 6;                                            // fixed visible marker
-  const recRingR = recCircleR + 5;                                 // small hover halo
+  const recCircleR = 6;                                            // fixed marker
+  const recRingR = recCircleR + 5;
+
+  // r1 floor: ing icons mustn't overlap the centre summary (~80px bbox-radius)
+  const CENTRE_BBOX = 85;
+  const r1Floor = Math.max(100, CENTRE_BBOX + ingIconSize / 2 + 12);
+  const r1Ceil = 240;
+  const r1 = Math.round(r1Floor + Math.max(0, r1Ceil - r1Floor) * (nIngs / 19));
+
+  // ringGap: enough space for both icon halves + buffer
+  const effIng = nIngs > 0 ? ingIconSize : 0;
+  const ringGap = effIng / 2 + recIconSize / 2 + 18;
+
+  // r2 + rIcon: scale outward, but never closer than r1 + ringGap
+  const r2Floor = r1 + ringGap;
+  const r2Ceil = 395;
+  const r2 = Math.round(Math.max(r2Floor, r2Floor + Math.max(0, r2Ceil - r2Floor) * (totalRec / 76)));
+  const rIcon = r2 + Math.max(20, Math.round(recIconSize / 2 - 8));
 
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.classList.toggle('hide-labels', S.tab3HideLabels);
@@ -2648,7 +2651,10 @@ function renderRadialGraph(svg) {
     const list = grouped[t];
     if (!list.length) return;
     const sectorBase = SECTOR_START + sIdx * SECTOR_WIDTH;
-    const margin = SECTOR_WIDTH * 0.03;  // tighter — was 7%, fixes mid-sector icon overlap
+    // Adaptive margin: must keep cross-sector neighbour icons apart (gap >= icon + 10)
+    const minSep = (recIconSize + 10) / Math.max(50, rIcon);  // angular minimum
+    const marginPct = Math.max(0.03, minSep / SECTOR_WIDTH);
+    const margin = SECTOR_WIDTH * marginPct;
     const usable = SECTOR_WIDTH - 2 * margin;
     const step = list.length > 1 ? usable / (list.length - 1) : 0;
     list.forEach((r, i) => {
@@ -2682,9 +2688,9 @@ function renderRadialGraph(svg) {
     path.setAttribute('opacity', '0.25');
     arcLayer.appendChild(path);
 
-    // Type label, placed just past the icon edge (closer when icons are big)
+    // Type label, well outside the icon ring
     const mid = base + SECTOR_WIDTH / 2;
-    const labelGap = recIconSize / 2 + 30;   // sits ~30px outside the largest icon edge
+    const labelGap = recIconSize / 2 + 45;
     const lx = cx + (rIcon + labelGap) * Math.cos(mid);
     const ly = cy + (rIcon + labelGap) * Math.sin(mid);
     const lbl = document.createElementNS(ns, 'text');
@@ -2748,13 +2754,17 @@ function renderRadialGraph(svg) {
     img.setAttribute('width', ingIconSize); img.setAttribute('height', ingIconSize);
     g.appendChild(img);
 
-    // Place label OUTSIDE the ing circle, radially outward from centre
+    // Place label OUTSIDE the ing circle. text-anchor depends on angle so the
+    // text always extends AWAY from the icon (never back across it).
     const labelOffset = ingCircleR + 14;
-    const labelX = labelOffset * Math.cos(pos.angle);
-    const labelY = labelOffset * Math.sin(pos.angle) + 4;
+    const cosA = Math.cos(pos.angle), sinA = Math.sin(pos.angle);
+    const anchor = cosA > 0.3 ? 'start' : cosA < -0.3 ? 'end' : 'middle';
+    const labelX = labelOffset * cosA;
+    const labelY = labelOffset * sinA + 4;
     const label = document.createElementNS(ns, 'text');
     label.setAttribute('class', 'g-ing-label');
     label.setAttribute('x', labelX); label.setAttribute('y', labelY);
+    label.setAttribute('text-anchor', anchor);
     label.textContent = ing.name;
     g.appendChild(label);
 
