@@ -1421,6 +1421,81 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
   overflow: hidden;
   flex: 1;
   display: flex;
+  position: relative;
+}
+
+/* Corner info panels overlaid on the map */
+.map-corner {
+  position: absolute;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0;
+  font-size: 11px;
+  max-width: 230px;
+  z-index: 5;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  backdrop-filter: blur(4px);
+}
+.map-corner.tl { top: 10px; left: 10px; }
+.map-corner.tr { top: 10px; right: 10px; }
+.map-corner.bl { bottom: 10px; left: 10px; }
+.map-corner.br { bottom: 10px; right: 10px; }
+.map-corner-head {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent-bright);
+  padding: 6px 9px;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.map-corner-head .cap-toggle { font-size: 9px; transition: transform 0.18s; }
+.map-corner.collapsed .map-corner-head .cap-toggle { transform: rotate(-90deg); }
+.map-corner-body {
+  padding: 4px 9px 8px;
+  max-height: 260px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.map-corner.collapsed .map-corner-body { display: none; }
+.corner-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+}
+.corner-row img { width: 16px; height: 16px; flex-shrink: 0; }
+.corner-row .type-tag {
+  font-size: 8.5px;
+  padding: 1px 4px;
+  border-radius: 4px;
+  color: #fff;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.corner-row .type-tag.curry   { background: var(--curry); }
+.corner-row .type-tag.salad   { background: var(--salad); }
+.corner-row .type-tag.dessert { background: var(--dessert); }
+.corner-row .rname {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.corner-row .rsub { color: var(--text-muted); font-size: 10px; }
+.corner-row .miss-x { color: var(--accent-bright); font-weight: 700; font-size: 10px; }
+.corner-empty {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-style: italic;
+  text-align: center;
+  padding: 6px;
 }
 .g-ing-node.hidden-by-owned,
 .g-recipe-node.hidden-superseded { display: none; }
@@ -1968,6 +2043,14 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
     </div>
     <div class="panel-body" id="explore-map">
       <svg id="explore-graph" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="map-corner tr" id="corner-best3">
+        <header class="map-corner-head" data-target="best3-body">🏆 當前最佳 3 道 <span class="cap-toggle">▼</span></header>
+        <div class="map-corner-body" id="best3-body"></div>
+      </div>
+      <div class="map-corner br" id="corner-near1">
+        <header class="map-corner-head" data-target="near1-body">🎯 再差 1 種 <span class="cap-toggle">▼</span></header>
+        <div class="map-corner-body" id="near1-body"></div>
+      </div>
     </div>
   </div>
 
@@ -2227,6 +2310,67 @@ function buildExploreMap() {
   const tab2 = document.getElementById('explore-graph-tab2');
   if (tab3) renderRadialGraph(tab3);
   if (tab2) renderArcGraph(tab2);
+  buildCornerPanels();
+}
+
+function buildCornerPanels() {
+  if (!S.data) return;
+  const { ingredients, recipes } = S.data;
+  const ingByName = Object.fromEntries(ingredients.map((x, i) => [x.name, i]));
+  const typeLabelShort = { curry: '咖', salad: '沙', dessert: '點' };
+
+  const activeRecipes = recipes.filter(r =>
+    !r.is_placeholder && r.tier_bonus >= S.minTier &&
+    !r.ingredients.some(ing => S.excluded.has(ingByName[ing.name]))
+  );
+
+  // Top-right: current best cookable per type
+  const best3 = document.getElementById('best3-body');
+  if (best3) {
+    const cookable = activeRecipes.filter(r =>
+      r.ingredients.every(ing => S.owned.has(ingByName[ing.name]))
+    );
+    const bestByType = {};
+    for (const r of cookable) {
+      const t = r.type_en;
+      if (!bestByType[t] || r.score_final > bestByType[t].score_final) bestByType[t] = r;
+    }
+    const html = ['curry', 'salad', 'dessert'].map(t => {
+      const r = bestByType[t];
+      if (!r) return `<div class="corner-row"><span class="type-tag ${t}">${typeLabelShort[t]}</span><span class="rname" style="color:var(--text-muted);font-style:italic;">— 尚無可煮</span></div>`;
+      return `<div class="corner-row">${recipeIconHTML(r, 16)}<span class="type-tag ${t}">${typeLabelShort[t]}</span><span class="rname">${r.name}</span><span class="rsub">${r.score_final.toLocaleString()}</span></div>`;
+    }).join('');
+    best3.innerHTML = html;
+  }
+
+  // Bottom-right: recipes 1-ing-away from cookable (sorted by score desc)
+  const near1 = document.getElementById('near1-body');
+  if (near1) {
+    const candidates = [];
+    for (const r of activeRecipes) {
+      const missing = r.ingredients.filter(ing => !S.owned.has(ingByName[ing.name]));
+      if (missing.length !== 1) continue;
+      candidates.push({ recipe: r, missing: missing[0] });
+    }
+    candidates.sort((a, b) => b.recipe.score_final - a.recipe.score_final);
+    if (candidates.length === 0) {
+      near1.innerHTML = '<div class="corner-empty">沒有「再差 1 種」的料理</div>';
+    } else {
+      near1.innerHTML = candidates.slice(0, 6).map(c => {
+        const t = c.recipe.type_en;
+        const missingIng = c.missing;
+        return `<div class="corner-row">${recipeIconHTML(c.recipe, 16)}<span class="type-tag ${t}">${typeLabelShort[t]}</span><span class="rname">${c.recipe.name}</span><span class="miss-x">差 ${missingIng.name}</span></div>`;
+      }).join('') + (candidates.length > 6 ? `<div class="corner-empty">…+${candidates.length - 6}</div>` : '');
+    }
+  }
+}
+
+function initCornerPanels() {
+  document.querySelectorAll('.map-corner-head').forEach(head => {
+    head.addEventListener('click', () => {
+      head.closest('.map-corner').classList.toggle('collapsed');
+    });
+  });
 }
 
 function renderArcGraph(svg) {
@@ -2470,14 +2614,15 @@ function renderRadialGraph(svg) {
 
   const rIcon = r2 + 28;
 
-  // Icon sizes scale inverse to ring density:
-  //  ingIcon 36 (all 19) → 60 (only a few)
-  //  recIcon 22 (all 76) → 44 (only a few)
-  const ingIconSize = Math.round(36 + (1 - nIngs / 19) * 24);
-  const recIconSize = Math.round(22 + (1 - totalRec / 76) * 22);
+  // Icon sizes — quadratic scaling so collapse states show MUCH bigger icons.
+  // Recipe COLOURED DOT stays small (just a marker); the food ICON is what grows.
+  const ingRatio = 1 - nIngs / 19;
+  const recRatio = 1 - totalRec / 76;
+  const ingIconSize = Math.round(34 + ingRatio * ingRatio * 60);  // 34 → 94
+  const recIconSize = Math.round(18 + recRatio * recRatio * 70);  // 18 → 88
   const ingCircleR = Math.round(ingIconSize / 2 + 4);
-  const recRingR = Math.round(recIconSize / 2 + 4);
-  const recCircleR = Math.max(4, Math.round(recIconSize / 4 + 2));
+  const recCircleR = 6;                                            // fixed visible marker
+  const recRingR = recCircleR + 5;                                 // small hover halo
 
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   svg.classList.toggle('hide-labels', S.tab3HideLabels);
@@ -2503,7 +2648,7 @@ function renderRadialGraph(svg) {
     const list = grouped[t];
     if (!list.length) return;
     const sectorBase = SECTOR_START + sIdx * SECTOR_WIDTH;
-    const margin = SECTOR_WIDTH * 0.07;
+    const margin = SECTOR_WIDTH * 0.03;  // tighter — was 7%, fixes mid-sector icon overlap
     const usable = SECTOR_WIDTH - 2 * margin;
     const step = list.length > 1 ? usable / (list.length - 1) : 0;
     list.forEach((r, i) => {
@@ -2537,10 +2682,11 @@ function renderRadialGraph(svg) {
     path.setAttribute('opacity', '0.25');
     arcLayer.appendChild(path);
 
-    // Type label, placed mid-sector well outside the recipe-icon ring
+    // Type label, placed just past the icon edge (closer when icons are big)
     const mid = base + SECTOR_WIDTH / 2;
-    const lx = cx + (rIcon + 80) * Math.cos(mid);
-    const ly = cy + (rIcon + 80) * Math.sin(mid);
+    const labelGap = recIconSize / 2 + 30;   // sits ~30px outside the largest icon edge
+    const lx = cx + (rIcon + labelGap) * Math.cos(mid);
+    const ly = cy + (rIcon + labelGap) * Math.sin(mid);
     const lbl = document.createElementNS(ns, 'text');
     lbl.setAttribute('x', lx); lbl.setAttribute('y', ly);
     lbl.setAttribute('class', `g-type-label ${t}`);
@@ -3808,6 +3954,7 @@ function init() {
   initStatsControls();
   initPopover();
   initExploreInfo();
+  initCornerPanels();
 
   buildIngToolbar();
   buildIngStateStrip();
