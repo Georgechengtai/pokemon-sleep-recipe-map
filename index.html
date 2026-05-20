@@ -1500,9 +1500,9 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
 .g-ing-node.hidden-by-owned,
 .g-recipe-node.hidden-superseded { display: none; }
 
-/* Text-caption hide toggle (default ON via JS — labels hidden by default) */
-#explore-graph.hide-labels .g-ing-label,
-#explore-graph.hide-labels .g-type-label { display: none; }
+/* Text-caption visibility (split: ing labels + type labels independent) */
+#explore-graph.hide-ing-labels .g-ing-label { display: none; }
+#explore-graph.hide-type-labels .g-type-label { display: none; }
 
 /* Centre summary inside the inner ring (gives the empty middle a purpose) */
 .g-centre-summary {
@@ -1599,9 +1599,10 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
   opacity: 0.5;
 }
 .g-type-label {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 800;
   text-anchor: middle;
+  letter-spacing: 0.04em;
 }
 .g-type-label.curry   { fill: var(--curry); }
 .g-type-label.salad   { fill: var(--salad); }
@@ -2038,7 +2039,8 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
     <div id="map-controls">
       <label class="browser-toggle"><input type="checkbox" id="tab3-hide-owned"> 隱藏已有食材（內圈崩潰）</label>
       <label class="browser-toggle"><input type="checkbox" id="tab3-hide-superseded"> 隱藏被超越料理（外圈崩潰）</label>
-      <label class="browser-toggle"><input type="checkbox" id="tab3-show-labels"> 顯示文字標籤</label>
+      <label class="browser-toggle"><input type="checkbox" id="tab3-show-ing-labels"> 顯示食材名稱</label>
+      <label class="browser-toggle"><input type="checkbox" id="tab3-show-type-labels" checked> 顯示系列標籤</label>
       <span style="margin-left:auto;font-size:10.5px;color:var(--text-muted);">點 ing/推薦卡 直接切換狀態</span>
     </div>
     <div class="panel-body" id="explore-map">
@@ -2193,7 +2195,8 @@ const S = {
   showExcluded: false,       // Tab 2: include excluded ings in stats & matrix
   tab3HideOwnedIngs: false,  // Tab 3 radial: hide ings already owned (inner ring collapse)
   tab3HideSuperseded: false, // Tab 3 radial: hide same-type recipes scoring < highest-cookable
-  tab3HideLabels: true,      // Tab 3 radial: hide text captions (ing names, sector labels). Default ON.
+  tab3ShowIngLabels: false,   // Tab 3 radial: show ing name captions. Default OFF.
+  tab3ShowTypeLabels: true,   // Tab 3 radial: show sector labels (咖哩/沙拉/點心). Default ON.
   recMode: 'most',           // Recommender mode: 'most' (most new recipes) | 'highest' (next-higher-tier)
 };
 
@@ -2605,7 +2608,7 @@ function renderRadialGraph(svg) {
   // Icon sizes first (quadratic, drives gap math below)
   const ingRatio = nIngs > 0 ? 1 - nIngs / 19 : 0;
   const recRatio = totalRec > 0 ? 1 - totalRec / 76 : 0;
-  const ingIconSize = Math.round(34 + ingRatio * ingRatio * 60);  // 34 → 94
+  const ingIconSize = Math.round(34 + ingRatio * ingRatio * 30);  // 34 → 64 max (moderate)
   const recIconSize = Math.round(18 + recRatio * recRatio * 70);  // 18 → 88
   const ingCircleR = Math.round(ingIconSize / 2 + 4);
   const recCircleR = 6;                                            // fixed marker
@@ -2628,7 +2631,8 @@ function renderRadialGraph(svg) {
   const rIcon = r2 + Math.max(20, Math.round(recIconSize / 2 - 8));
 
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
-  svg.classList.toggle('hide-labels', S.tab3HideLabels);
+  svg.classList.toggle('hide-ing-labels', !S.tab3ShowIngLabels);
+  svg.classList.toggle('hide-type-labels', !S.tab3ShowTypeLabels);
 
   // Ing positions: based on VISIBLE ings (re-spaced evenly)
   const ingPos = {};
@@ -2697,7 +2701,7 @@ function renderRadialGraph(svg) {
     lbl.setAttribute('x', lx); lbl.setAttribute('y', ly);
     lbl.setAttribute('class', `g-type-label ${t}`);
     lbl.setAttribute('text-anchor', 'middle');
-    lbl.setAttribute('font-size', '13');
+    lbl.setAttribute('font-size', '16');
     const tLabels = { curry: '🍛 咖哩、濃湯', salad: '🥗 沙拉', dessert: '🧁 點心、飲料' };
     lbl.textContent = `${tLabels[t]} (${grouped[t].length})`;
     arcLayer.appendChild(lbl);
@@ -3295,7 +3299,8 @@ function saveHash() {
   if (S.tab3HideOwnedIngs) params.set('hideOwn', '1');
   if (S.tab3HideSuperseded) params.set('hideSup', '1');
   if (S.recMode !== 'most') params.set('recMode', S.recMode);
-  if (!S.tab3HideLabels) params.set('showLbl', '1');
+  if (S.tab3ShowIngLabels) params.set('ingLbl', '1');
+  if (!S.tab3ShowTypeLabels) params.set('noTypeLbl', '1');
   const hash = params.toString();
   history.replaceState(null, '', hash ? '#' + hash : window.location.pathname);
 }
@@ -3321,7 +3326,8 @@ function loadHash() {
   if (params.get('hideOwn'))    S.tab3HideOwnedIngs = params.get('hideOwn') === '1';
   if (params.get('hideSup'))    S.tab3HideSuperseded = params.get('hideSup') === '1';
   if (params.get('recMode'))    S.recMode = params.get('recMode');
-  if (params.get('showLbl'))    S.tab3HideLabels = false;
+  if (params.get('ingLbl'))     S.tab3ShowIngLabels = true;
+  if (params.get('noTypeLbl'))  S.tab3ShowTypeLabels = false;
 }
 
 /* ── Tab routing ─────────────────────────────────────────────────── */
@@ -3469,10 +3475,15 @@ function initExploreInfo() {
     hideSup.checked = S.tab3HideSuperseded;
     hideSup.addEventListener('change', e => { S.tab3HideSuperseded = e.target.checked; buildExploreMap(); saveHash(); });
   }
-  const showLabels = document.getElementById('tab3-show-labels');
-  if (showLabels) {
-    showLabels.checked = !S.tab3HideLabels;
-    showLabels.addEventListener('change', e => { S.tab3HideLabels = !e.target.checked; buildExploreMap(); saveHash(); });
+  const showIng = document.getElementById('tab3-show-ing-labels');
+  if (showIng) {
+    showIng.checked = S.tab3ShowIngLabels;
+    showIng.addEventListener('change', e => { S.tab3ShowIngLabels = e.target.checked; buildExploreMap(); saveHash(); });
+  }
+  const showType = document.getElementById('tab3-show-type-labels');
+  if (showType) {
+    showType.checked = S.tab3ShowTypeLabels;
+    showType.addEventListener('change', e => { S.tab3ShowTypeLabels = e.target.checked; buildExploreMap(); saveHash(); });
   }
 }
 
