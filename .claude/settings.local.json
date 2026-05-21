@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(pip3 show *)",
+      "Bash(pip3 install *)",
+      "Bash(python3 -m playwright install chromium)",
+      "Bash(mkdir -p \"/Users/yingtaicheng/Claude Cowork/Pokemon Sleep/.git/hooks\")",
+      "Bash(chmod +x \"/Users/yingtaicheng/Claude Cowork/Pokemon Sleep/.git/hooks/pre-commit\")",
+      "Bash(python3 scripts/visual_check.py pokemon_sleep_explorer_v6.html phase1-test)",
+      "Bash(python3 -)",
+      "Bash(python3 scripts/prep_data.py)"
+    ]
+  }
+}

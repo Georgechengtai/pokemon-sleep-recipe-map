@@ -407,6 +407,39 @@ body {
 .plan-badge.need { border-color: var(--accent); color: var(--accent-bright); }
 .plan-badge.missing { border-color: var(--dessert); color: var(--dessert); }
 
+.plan-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.plan-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.plan-step:hover { border-color: var(--accent); }
+.plan-step .ps-num {
+  flex: 0 0 18px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--accent-bright);
+}
+.plan-step .ps-name { flex: 1; }
+.plan-step .ps-after {
+  color: var(--muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+.plan-step.lowgain { opacity: 0.6; border-style: dashed; }
+.plan-step.lowgain .ps-after { color: var(--dessert); }
+
 /* ── Construction Kit ─────────────────────────────────────────── */
 #ck-toggle {
   position: fixed;
@@ -2095,8 +2128,12 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
       </div>
       <div class="panel-body">
         <div id="plan-explainer" hidden>
-          <p>「畢業」= 能煮出三系（咖哩/沙拉/點心）的最高階料理。</p>
-          <p>面板顯示這些目標料理需要的<b>食材總集</b>，並列出你還缺哪些。Hover 缺少食材 → Map 亮起對應料理。</p>
+          <p><b>目標：</b>選定要畢業的料理組合（階級門檻 + 每系幾道）。</p>
+          <p><b>演算法：</b>從你目前已有食材出發，模擬「下一個該補哪個食材」，列出有序的補食材路徑。</p>
+          <p>• <b>貪婪 (Greedy)</b>：每步選能立刻多解鎖最多目標料理的食材。快但有時繞遠。</p>
+          <p>• <b>2 步展望 (Lookahead)</b>：每步看兩步之後的總解鎖數最大化。較慢但路徑更短。</p>
+          <p><b>主軸：</b>「效率」= 每步以總解鎖數最大化；「補弱系」= 優先補目前 0 道料理的系列，避免單系列獨大。</p>
+          <p><b>中繼門檻：</b>>0 表示每步至少要多開 N 道料理，否則該步驟視為低效並標記。</p>
         </div>
         <div class="plan-controls">
           <div class="plan-row">
@@ -2115,8 +2152,31 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
               <option value="99">全部</option>
             </select>
           </div>
+          <div class="plan-row">
+            <label>演算法</label>
+            <select id="plan-algo">
+              <option value="greedy" selected>貪婪（每步最多解鎖）</option>
+              <option value="lookahead">2 步展望</option>
+            </select>
+          </div>
+          <div class="plan-row">
+            <label>主軸</label>
+            <select id="plan-focus">
+              <option value="efficiency" selected>效率優先</option>
+              <option value="worst">先補弱系</option>
+            </select>
+          </div>
+          <div class="plan-row">
+            <label>中繼門檻</label>
+            <select id="plan-minInter">
+              <option value="0" selected>關閉</option>
+              <option value="1">每步 ≥1 道</option>
+              <option value="2">每步 ≥2 道</option>
+            </select>
+          </div>
         </div>
         <div class="plan-summary" id="plan-summary"></div>
+        <div class="plan-steps" id="plan-steps"></div>
         <div class="plan-badges" id="plan-badges"></div>
       </div>
     </div>
@@ -2198,6 +2258,9 @@ const S = {
   tab3ShowIngLabels: false,   // Tab 3 radial: show ing name captions. Default OFF.
   tab3ShowTypeLabels: true,   // Tab 3 radial: show sector labels (咖哩/沙拉/點心). Default ON.
   recMode: 'most',           // Recommender mode: 'most' (most new recipes) | 'highest' (next-higher-tier)
+  planAlgo: 'greedy',        // Path Planner algorithm: 'greedy' | 'lookahead'
+  planFocus: 'efficiency',   // Path Planner focus: 'efficiency' (max cookable/step) | 'worst' (fix weakest type first)
+  planMinInter: 0,           // Path Planner: min new cookable per intermediate step (0=off)
 };
 
 const TYPE_META = {
@@ -3196,7 +3259,11 @@ function buildPlanner() {
   const { ingredients, recipes } = S.data;
   const tierSel    = parseFloat(document.getElementById('plan-tier').value);
   const breadth    = parseInt(document.getElementById('plan-breadth').value);
+  const algo       = S.planAlgo;
+  const focus      = S.planFocus;
+  const minInter   = S.planMinInter;
   const summary    = document.getElementById('plan-summary');
+  const stepsEl    = document.getElementById('plan-steps');
   const badgesEl   = document.getElementById('plan-badges');
 
   const types = ['curry', 'salad', 'dessert'];
@@ -3211,26 +3278,121 @@ function buildPlanner() {
 
   if (targetRecipes.length === 0) {
     summary.innerHTML = '<p>此組合沒有符合的料理，請降低目標階級。</p>';
+    stepsEl.innerHTML = '';
     badgesEl.innerHTML = '';
     return;
   }
 
-  // Union of required ingredients
-  const needNames = new Set();
-  for (const r of targetRecipes) {
-    for (const ing of r.ingredients) needNames.add(ing.name);
-  }
+  // Map target recipes -> required ing indices
+  const nameToIdx = new Map(ingredients.map((x, i) => [x.name, i]));
+  const targetData = targetRecipes.map(r => ({
+    recipe: r,
+    needSet: new Set(r.ingredients.map(ing => nameToIdx.get(ing.name)).filter(i => i != null)),
+  }));
 
-  const needIndices = [...needNames].map(name =>
-    ingredients.findIndex(x => x.name === name)
-  ).filter(i => i >= 0);
+  const needNames = new Set();
+  for (const r of targetRecipes) for (const ing of r.ingredients) needNames.add(ing.name);
+  const needIndices = [...needNames].map(n => nameToIdx.get(n)).filter(i => i != null);
 
   const have = needIndices.filter(i => S.owned.has(i));
   const missing = needIndices.filter(i => !S.owned.has(i));
 
+  // ── Simulate ordered path ─────────────────────────────────
+  // From current owned, repeatedly pick best next missing ing.
+  const cookableCount = (ownedSet) => {
+    let c = 0;
+    const perType = { curry: 0, salad: 0, dessert: 0 };
+    for (const td of targetData) {
+      let ok = true;
+      for (const i of td.needSet) { if (!ownedSet.has(i)) { ok = false; break; } }
+      if (ok) { c++; perType[td.recipe.type_en]++; }
+    }
+    return { total: c, perType };
+  };
+
+  const scoreCandidate = (ownedSet, before) => {
+    const after = cookableCount(ownedSet);
+    const gain = after.total - before.total;
+    if (focus === 'worst') {
+      // bonus if it lifts a type that has 0 cooked
+      let worstBonus = 0;
+      for (const t of types) {
+        if (before.perType[t] === 0 && after.perType[t] > 0) worstBonus += 10;
+      }
+      return gain + worstBonus;
+    }
+    return gain;
+  };
+
+  const path = [];
+  const simOwned = new Set(S.owned);
+  let remaining = missing.slice();
+  let safety = remaining.length + 2;
+  while (remaining.length > 0 && safety-- > 0) {
+    const before = cookableCount(simOwned);
+    let bestI = -1, bestScore = -Infinity, bestAfter = null;
+    for (const i of remaining) {
+      simOwned.add(i);
+      let s = scoreCandidate(simOwned, before);
+      if (algo === 'lookahead') {
+        // peek best next gain
+        let bestNext = 0;
+        const mid = cookableCount(simOwned);
+        for (const j of remaining) {
+          if (j === i) continue;
+          simOwned.add(j);
+          const after2 = cookableCount(simOwned);
+          const g = after2.total - mid.total;
+          if (g > bestNext) bestNext = g;
+          simOwned.delete(j);
+        }
+        s += bestNext * 0.5;
+      }
+      simOwned.delete(i);
+      if (s > bestScore) { bestScore = s; bestI = i; }
+    }
+    if (bestI < 0) break;
+    simOwned.add(bestI);
+    const after = cookableCount(simOwned);
+    const gain = after.total - before.total;
+    path.push({
+      ing: ingredients[bestI],
+      idx: bestI,
+      gain,
+      cookable: after.total,
+      perType: after.perType,
+      lowGain: minInter > 0 && gain < minInter,
+    });
+    remaining = remaining.filter(x => x !== bestI);
+  }
+
+  const initial = cookableCount(S.owned);
   summary.innerHTML = `
-    <p>目標：<strong>${targetRecipes.length} 道料理</strong>（${types.map(t => ({curry:'咖哩/濃湯',salad:'沙拉',dessert:'點心/飲料'}[t])).join('、')}）</p>
-    <p>需要食材：<strong>${needIndices.length} 種</strong>　已有 <strong style="color:var(--owned)">${have.length}</strong> / 還缺 <strong style="color:var(--dessert)">${missing.length}</strong></p>`;
+    <p>目標：<strong>${targetRecipes.length} 道料理</strong>　起點可煮：<strong style="color:var(--owned)">${initial.total}</strong> / ${targetRecipes.length}</p>
+    <p>需要食材：<strong>${needIndices.length} 種</strong>　已有 <strong style="color:var(--owned)">${have.length}</strong> / 還缺 <strong style="color:var(--dessert)">${missing.length}</strong>　補完路徑：<strong>${path.length} 步</strong></p>`;
+
+  // ── Render ordered steps ───────────────────────────────────
+  stepsEl.innerHTML = '';
+  path.forEach((step, idx) => {
+    const row = document.createElement('div');
+    row.className = 'plan-step' + (step.lowGain ? ' lowgain' : '');
+    const perTypeStr = `🍛${step.perType.curry} 🥗${step.perType.salad} 🧁${step.perType.dessert}`;
+    row.innerHTML = `
+      <span class="ps-num">${idx + 1}</span>
+      ${ingIconHTML(step.ing, 18)}
+      <span class="ps-name">${step.ing.name}</span>
+      <span class="ps-after">+${step.gain} 道 → ${step.cookable}/${targetRecipes.length}　${perTypeStr}</span>`;
+    row.addEventListener('click', () => toggleOwned(step.idx));
+    row.addEventListener('mouseenter', () => {
+      highlightIngredient(step.idx);
+      ghostPreviewIng(step.idx);
+    });
+    row.addEventListener('mouseleave', () => {
+      clearHighlight();
+      clearGhostPreview();
+    });
+    stepsEl.appendChild(row);
+  });
 
   badgesEl.innerHTML = '';
   for (const i of needIndices) {
@@ -3240,10 +3402,10 @@ function buildPlanner() {
     badge.className = `plan-badge ${cls}`;
     badge.innerHTML = `${ingIconHTML(ing, 14)} ${ing.name}`;
     badge.style.cursor = 'pointer';
-    badge.addEventListener('click', () => toggleOwned(i));  // plan badge: simply add to owned
+    badge.addEventListener('click', () => toggleOwned(i));
     badge.addEventListener('mouseenter', () => {
       highlightIngredient(i);
-      if (!S.owned.has(i)) ghostPreviewIng(i);  // only preview missing ings
+      if (!S.owned.has(i)) ghostPreviewIng(i);
     });
     badge.addEventListener('mouseleave', () => {
       clearHighlight();
@@ -3301,6 +3463,9 @@ function saveHash() {
   if (S.recMode !== 'most') params.set('recMode', S.recMode);
   if (S.tab3ShowIngLabels) params.set('ingLbl', '1');
   if (!S.tab3ShowTypeLabels) params.set('noTypeLbl', '1');
+  if (S.planAlgo !== 'greedy') params.set('planAlgo', S.planAlgo);
+  if (S.planFocus !== 'efficiency') params.set('planFocus', S.planFocus);
+  if (S.planMinInter !== 0) params.set('planMin', S.planMinInter);
   const hash = params.toString();
   history.replaceState(null, '', hash ? '#' + hash : window.location.pathname);
 }
@@ -3328,6 +3493,9 @@ function loadHash() {
   if (params.get('recMode'))    S.recMode = params.get('recMode');
   if (params.get('ingLbl'))     S.tab3ShowIngLabels = true;
   if (params.get('noTypeLbl'))  S.tab3ShowTypeLabels = false;
+  if (params.get('planAlgo'))   S.planAlgo = params.get('planAlgo');
+  if (params.get('planFocus'))  S.planFocus = params.get('planFocus');
+  if (params.get('planMin'))    S.planMinInter = parseInt(params.get('planMin'));
 }
 
 /* ── Tab routing ─────────────────────────────────────────────────── */
@@ -3984,11 +4152,18 @@ function init() {
   buildMatrix();
   buildPicker();
   buildRecommender();
+  // restore planner selects from S before first render
+  document.getElementById('plan-algo').value = S.planAlgo;
+  document.getElementById('plan-focus').value = S.planFocus;
+  document.getElementById('plan-minInter').value = String(S.planMinInter);
   buildPlanner();
   updateOwnedDisplay();
 
   document.getElementById('plan-tier').addEventListener('change', () => { buildPlanner(); saveHash(); });
   document.getElementById('plan-breadth').addEventListener('change', () => buildPlanner());
+  document.getElementById('plan-algo').addEventListener('change', (e) => { S.planAlgo = e.target.value; buildPlanner(); saveHash(); });
+  document.getElementById('plan-focus').addEventListener('change', (e) => { S.planFocus = e.target.value; buildPlanner(); saveHash(); });
+  document.getElementById('plan-minInter').addEventListener('change', (e) => { S.planMinInter = parseInt(e.target.value); buildPlanner(); saveHash(); });
 }
 
 loadData();
