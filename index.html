@@ -3532,10 +3532,18 @@ function pickPlannerIntermediates(goals, nameToIdx) {
     return { selected: out, finalIngs };
   }
 
-  // GLOBAL: enumerate subsets size 0..3 from top-N candidates (capped for tractability)
-  const topCands = [...candidates].sort((a, b) => b.value - a.value).slice(0, 16);
+  // GLOBAL: enumerate subsets size 0..3 from top-N candidates.
+  // PRIMARY objective: minimize TOTAL grinding burden = |union(final ∪ subset.ings)|.
+  // SECONDARY: maximize milestone coverage (how many goals get an intermediate).
+  // TERTIARY: maximize sum of intermediate scores (own usefulness).
+  // The user-facing promise of Global is "fewer total ings than Local", so extra ings
+  // MUST dominate value. We use a hierarchical lexicographic score via large weights.
+  const topCands = [...candidates]
+    // Pre-rank by ratio (overlap / (waste+1)) — favors clean stepping stones
+    .sort((a, b) => (b.overlapAll / (b.waste + 1)) - (a.overlapAll / (a.waste + 1)))
+    .slice(0, 18);
+  const maxValue = Math.max(1, ...candidates.map(c => c.value));
   const subsetScore = (subset) => {
-    if (subset.length === 0) return 0;
     const unionExtra = new Set();
     for (const c of subset) for (const i of c.ingSet) if (!finalIngs.has(i)) unionExtra.add(i);
     let coveredGoals = 0;
@@ -3547,15 +3555,18 @@ function pickPlannerIntermediates(goals, nameToIdx) {
       }
       if (covered) coveredGoals++;
     }
-    const valueSum = subset.reduce((s, c) => s + c.value, 0);
-    return valueSum
-      + PLAN_WEIGHTS.coverageBonus * coveredGoals
-      - PLAN_WEIGHTS.wasteGlobal * unionExtra.size;
+    // normalized value sum (0..1 per intermediate), much smaller than coverage/waste
+    const normValue = subset.reduce((s, c) => s + c.value / maxValue, 0);
+    // Lexicographic: extra ings (highest weight, negative) → coverage → size → value
+    return -unionExtra.size * 100000
+         + coveredGoals * 1000
+         + subset.length * 50          // prefer more milestones if waste-free
+         + normValue * 10;
   };
 
   let bestSubset = [];
-  let bestScore = -Infinity;
-  // size 1, 2, 3 (size 0 = bestScore baseline)
+  let bestScore = subsetScore([]);  // empty set baseline (0 extra, 0 coverage)
+  // size 1, 2, 3
   for (let k = 1; k <= 3; k++) {
     const idxArr = Array(k).fill(0);
     const recurse = (depth, start) => {
@@ -4569,9 +4580,10 @@ function populatePlannerCustomSelects() {
   const types = [['curry','curry'],['salad','salad'],['dessert','dessert']];
   for (const [t, id] of types) {
     const sel = document.getElementById('plan-custom-' + id);
+    // Preserve in-flight form value first, fall back to committed S.planCustomGoals
+    const current = sel.value || S.planCustomGoals[t] || null;
     const pool = live.filter(r => r.type_en === t && r.tier_bonus >= minTier)
                      .sort((a,b) => b.tier_bonus - a.tier_bonus || b.score_final - a.score_final);
-    const current = S.planCustomGoals[t];
     sel.innerHTML = '<option value="">— 不選 —</option>' +
       pool.map(r => `<option value="${r.name}"${r.name===current?' selected':''}>+${Math.round(r.tier_bonus*100)}% · ${r.name} (${r.score_final.toLocaleString()})</option>`).join('');
   }
