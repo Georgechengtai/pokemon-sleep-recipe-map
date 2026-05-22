@@ -292,7 +292,8 @@ body {
 }
 
 /* ── Recommender Panel ────────────────────────────────────────── */
-#rec-panel { flex: 1; overflow: hidden; border-bottom: 1px solid var(--border); }
+#rec-panel { flex: 1 1 50%; min-height: 180px; overflow: hidden; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; }
+#rec-panel .panel-body { overflow-y: auto; }
 .ing-picker {
   display: flex;
   flex-wrap: wrap;
@@ -360,7 +361,8 @@ body {
 }
 
 /* ── Planner Panel ────────────────────────────────────────────── */
-#plan-panel { flex: 0 0 auto; overflow: hidden; }
+#plan-panel { flex: 1 1 50%; min-height: 180px; overflow: hidden; display: flex; flex-direction: column; }
+#plan-panel .panel-body { overflow-y: auto; }
 .plan-controls {
   display: flex;
   flex-direction: column;
