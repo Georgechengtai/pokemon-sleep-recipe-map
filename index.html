@@ -439,8 +439,129 @@ body {
   font-size: 10px;
   white-space: nowrap;
 }
-.plan-step.lowgain { opacity: 0.6; border-style: dashed; }
-.plan-step.lowgain .ps-after { color: var(--dessert); }
+.plan-step.start { border-color: var(--owned); }
+.plan-step.end   { border-color: var(--accent-bright); border-width: 2px; }
+.plan-step .ps-tiers {
+  display: inline-flex; gap: 4px; font-size: 10px; color: var(--text-muted);
+  margin-left: 4px;
+}
+.plan-step .ps-tier { padding: 0 4px; border-radius: 8px; border: 1px solid var(--border); }
+.plan-step .ps-tier.gain { background: rgba(255,193,7,0.15); color: var(--tier-high); border-color: var(--tier-high); }
+.plan-arrow {
+  display: flex; justify-content: center; align-items: center;
+  height: 8px; color: var(--accent); font-size: 12px; line-height: 1;
+  user-select: none; pointer-events: none;
+}
+.plan-tiers { display: flex; gap: 8px; flex: 1; }
+.tier-chk {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; color: var(--text); cursor: pointer;
+  padding: 2px 6px; border: 1px solid var(--border); border-radius: 10px;
+}
+.tier-chk input { margin: 0; cursor: pointer; }
+.tier-chk:has(input:checked) { background: rgba(255,193,7,0.12); border-color: var(--tier-high); }
+
+.plan-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.plan-btn:hover { border-color: var(--accent); }
+.plan-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.plan-goals, .plan-inters {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 6px;
+}
+.plan-goal-row, .plan-inter-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 6px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.plan-goal-row { border-left: 3px solid var(--dessert); }
+.plan-inter-row { border-left: 3px solid var(--tier-high); opacity: 0.95; }
+.plan-goal-row:hover, .plan-inter-row:hover { background: var(--surface); }
+.plan-goal-row .pg-type, .plan-inter-row .pg-type {
+  flex: 0 0 22px; text-align: center;
+}
+.plan-goal-row .pg-name, .plan-inter-row .pg-name { flex: 1; }
+.plan-goal-row .pg-tier, .plan-inter-row .pg-tier {
+  font-size: 10px; color: var(--text-muted);
+  padding: 1px 4px; border-radius: 6px; border: 1px solid var(--border);
+}
+.plan-goal-row .pg-stat, .plan-inter-row .pg-stat {
+  font-size: 10px; color: var(--text-muted);
+}
+.plan-goal-row.cooked, .plan-inter-row.cooked {
+  border-left-color: var(--owned);
+}
+.plan-goal-row.cooked .pg-stat { color: var(--owned); }
+
+.plan-section-label {
+  font-size: 10px; color: var(--text-muted); text-transform: uppercase;
+  letter-spacing: 0.05em; margin: 6px 0 3px; font-weight: 600;
+}
+
+/* ── Modal (custom goal picker) ─────────────────────────────── */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 1000;
+  display: flex; align-items: center; justify-content: center;
+}
+.modal-overlay[hidden] { display: none; }
+.modal-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-width: 360px; max-width: 90vw;
+  max-height: 80vh; overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.modal-header {
+  padding: 10px 14px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  font-weight: 700; font-size: 13px;
+  display: flex; justify-content: space-between; align-items: center;
+}
+.modal-close {
+  background: none; border: none; color: var(--text-muted);
+  font-size: 16px; cursor: pointer; padding: 0 4px;
+}
+.modal-close:hover { color: var(--text); }
+.modal-body { padding: 12px 14px; overflow-y: auto; }
+.modal-hint { font-size: 11px; color: var(--text-muted); margin-bottom: 8px; }
+.modal-filter {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px; margin-bottom: 10px; cursor: pointer;
+}
+.modal-pick-row {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+}
+.modal-pick-row label {
+  flex: 0 0 110px; font-size: 12px;
+}
+.modal-pick-row select {
+  flex: 1; background: var(--surface2);
+  border: 1px solid var(--border); color: var(--text);
+  padding: 4px 6px; border-radius: 4px; font-size: 11px;
+}
+.modal-footer {
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end;
+}
 
 /* ── Construction Kit ─────────────────────────────────────────── */
 #ck-toggle {
@@ -2130,35 +2251,31 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
       </div>
       <div class="panel-body">
         <div id="plan-explainer" hidden>
-          <p><b>目標：</b>選定要畢業的料理組合（階級門檻 + 每系幾道）。</p>
-          <p><b>演算法：</b>從你目前已有食材出發，模擬「下一個該補哪個食材」，列出有序的補食材路徑。</p>
-          <p>• <b>貪婪 (Greedy)</b>：每步選能立刻多解鎖最多目標料理的食材。快但有時繞遠。</p>
-          <p>• <b>2 步展望 (Lookahead)</b>：每步看兩步之後的總解鎖數最大化。較慢但路徑更短。</p>
-          <p><b>主軸：</b>「效率」= 每步以總解鎖數最大化；「補弱系」= 優先補目前 0 道料理的系列，避免單系列獨大。</p>
-          <p><b>中繼門檻：</b>>0 表示每步至少要多開 N 道料理，否則該步驟視為低效並標記。</p>
+          <p><b>路徑（不是清單）：</b>從你目前已有食材出發，依目標 3 道料理，模擬「下一個該補哪個食材」。1→2→3 是有序的，每一步被前一步決定。</p>
+          <p><b>目標來源：</b>「智慧自動」每系列最高分 +78%；「咖啡 / 酪梨」預設套組；「自選 3 道」自己挑（一系列一道，預設 ≥+61%）。</p>
+          <p><b>中繼料理：</b>從目標料理的食材中，找出 +35/+48/+61% 階級裡食材重疊度高、廢材少的料理當墊腳石——讓你途中也有東西能煮。</p>
+          <p><b>演算法：</b>「Local（貪婪）」每個目標各自挑 1 道中繼，可能錯過更好的組合；「Global（全局）」把中繼當組合一起挑，總食材最少。</p>
+          <p><b>主軸：</b>「效率」追總解鎖最多；「先補弱系」優先補目前 0 道料理的系列。</p>
         </div>
         <div class="plan-controls">
           <div class="plan-row">
-            <label>目標階級</label>
-            <select id="plan-tier">
-              <option value="0.48">+48%↑</option>
-              <option value="0.61">+61%↑</option>
-              <option value="0.78" selected>+78%↑（頂級）</option>
+            <label>目標來源</label>
+            <select id="plan-goal-mode">
+              <option value="smart" selected>智慧自動（+78% 每系列最高分）</option>
+              <option value="coffee">咖啡套組（力量濃湯／咖啡沙拉／閃電泡芙）</option>
+              <option value="avocado">酪梨套組（焗烤酪梨／酪梨脆片／巧克力鬆餅）</option>
+              <option value="custom">自選 3 道…</option>
             </select>
           </div>
-          <div class="plan-row">
-            <label>每系列</label>
-            <select id="plan-breadth">
-              <option value="1" selected>最高 1 道</option>
-              <option value="3">前 3 道</option>
-              <option value="99">全部</option>
-            </select>
+          <div class="plan-row" id="plan-custom-row" style="display:none;">
+            <label></label>
+            <button id="plan-custom-btn" class="plan-btn">點此設定 3 道目標</button>
           </div>
           <div class="plan-row">
             <label>演算法</label>
             <select id="plan-algo">
-              <option value="greedy" selected>貪婪（每步最多解鎖）</option>
-              <option value="lookahead">2 步展望</option>
+              <option value="local" selected>Local（每目標各自挑中繼，快）</option>
+              <option value="global">Global（中繼組合一起挑，最佳）</option>
             </select>
           </div>
           <div class="plan-row">
@@ -2168,18 +2285,44 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
               <option value="worst">先補弱系</option>
             </select>
           </div>
-          <div class="plan-row">
-            <label>中繼門檻</label>
-            <select id="plan-minInter">
-              <option value="0" selected>關閉</option>
-              <option value="1">每步 ≥1 道</option>
-              <option value="2">每步 ≥2 道</option>
-            </select>
-          </div>
         </div>
         <div class="plan-summary" id="plan-summary"></div>
+        <div class="plan-goals" id="plan-goals"></div>
+        <div class="plan-inters" id="plan-inters"></div>
         <div class="plan-steps" id="plan-steps"></div>
-        <div class="plan-badges" id="plan-badges"></div>
+      </div>
+    </div>
+
+    <!-- Custom Goal Picker Modal -->
+    <div id="plan-custom-modal" class="modal-overlay" hidden>
+      <div class="modal-box">
+        <div class="modal-header">
+          <span>自選 3 道目標料理</span>
+          <button class="modal-close" id="plan-custom-close">✕</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-hint">每系列挑一道。預設只列 ≥+61% 的料理 (取消勾選看全部)。</p>
+          <label class="modal-filter">
+            <input type="checkbox" id="plan-custom-only-high" checked>
+            只顯示 ≥+61% 料理
+          </label>
+          <div class="modal-pick-row">
+            <label>🍛 咖哩、濃湯</label>
+            <select id="plan-custom-curry"></select>
+          </div>
+          <div class="modal-pick-row">
+            <label>🥗 沙拉</label>
+            <select id="plan-custom-salad"></select>
+          </div>
+          <div class="modal-pick-row">
+            <label>🧁 點心、飲料</label>
+            <select id="plan-custom-dessert"></select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button id="plan-custom-confirm" class="plan-btn primary">確認</button>
+        </div>
+      </div>
       </div>
     </div>
 
@@ -2260,9 +2403,11 @@ const S = {
   tab3ShowIngLabels: false,   // Tab 3 radial: show ing name captions. Default OFF.
   tab3ShowTypeLabels: true,   // Tab 3 radial: show sector labels (咖哩/沙拉/點心). Default ON.
   recMode: 'most',           // Recommender mode: 'most' (most new recipes) | 'highest' (next-higher-tier)
-  planAlgo: 'greedy',        // Path Planner algorithm: 'greedy' | 'lookahead'
-  planFocus: 'efficiency',   // Path Planner focus: 'efficiency' (max cookable/step) | 'worst' (fix weakest type first)
-  planMinInter: 0,           // Path Planner: min new cookable per intermediate step (0=off)
+  planAlgo: 'local',         // 'local' (greedy per-goal) | 'global' (set selection)
+  planFocus: 'efficiency',   // 'efficiency' | 'worst' (lift weakest-type first)
+  planGoalMode: 'smart',     // 'smart' | 'coffee' | 'avocado' | 'custom'
+  planCustomGoals: { curry: null, salad: null, dessert: null },  // recipe names for custom mode
+  planCustomOnlyHigh: true,  // custom picker: filter ≥+61% by default
 };
 
 const TYPE_META = {
@@ -3257,163 +3402,373 @@ function buildRecCard(c, rank, ing, ctx) {
 }
 
 /* ── Planner ────────────────────────────────────────────────────── */
-function buildPlanner() {
-  const { ingredients, recipes } = S.data;
-  const tierSel    = parseFloat(document.getElementById('plan-tier').value);
-  const breadth    = parseInt(document.getElementById('plan-breadth').value);
-  const algo       = S.planAlgo;
-  const focus      = S.planFocus;
-  const minInter   = S.planMinInter;
-  const summary    = document.getElementById('plan-summary');
-  const stepsEl    = document.getElementById('plan-steps');
-  const badgesEl   = document.getElementById('plan-badges');
 
+// Theme presets — abbreviated dish refs shown in goal-mode dropdown
+const PLAN_THEMES = {
+  coffee:  ['覺醒力量濃湯', '不服輸咖啡沙拉', '土王閃電泡芙'],
+  avocado: ['茂盛焗烤酪梨', '重踏酪梨醬脆片', '採蜜巧克力格子鬆餅'],
+};
+
+// Algorithm weights (start values; expose for future tuning)
+const PLAN_WEIGHTS = {
+  wasteLocal:   0.3,    // per-goal: -W * waste * avg_value
+  wasteGlobal:  200,    // global: per extra ing not in final_ings
+  coverageBonus: 1000,  // global: per goal covered by ≥1 intermediate
+  worstBoost:   50,     // focus=worst: bonus when step lifts a 0-cooked type
+};
+
+/** Pick the 3 target recipes per current goal mode. Returns array of recipe objects (length ≤3). */
+function pickPlannerGoals() {
+  const { recipes } = S.data;
+  const live = recipes.filter(r => !r.is_placeholder);
   const types = ['curry', 'salad', 'dessert'];
-  const targetRecipes = [];
-  for (const t of types) {
-    const pool = recipes
-      .filter(r => !r.is_placeholder && r.type_en === t && r.tier_bonus >= tierSel)
-      .sort((a, b) => b.score_final - a.score_final)
-      .slice(0, breadth);
-    targetRecipes.push(...pool);
+  const mode = S.planGoalMode;
+
+  // helper: top by score per type within a filter
+  const topByTypeScore = (pool) =>
+    types.map(t => {
+      const sub = pool.filter(r => r.type_en === t);
+      if (sub.length === 0) return null;
+      return sub.reduce((a, b) => a.score_final >= b.score_final ? a : b);
+    }).filter(Boolean);
+
+  if (mode === 'smart') {
+    // top score_final per type among +78%, fallback to +61% if a type has none
+    return types.map(t => {
+      const top78 = live.filter(r => r.type_en === t && r.tier_bonus >= 0.78);
+      if (top78.length > 0) return top78.reduce((a, b) => a.score_final >= b.score_final ? a : b);
+      const top61 = live.filter(r => r.type_en === t && r.tier_bonus >= 0.61);
+      if (top61.length > 0) return top61.reduce((a, b) => a.score_final >= b.score_final ? a : b);
+      return null;
+    }).filter(Boolean);
+  }
+  if (mode === 'coffee' || mode === 'avocado') {
+    const names = PLAN_THEMES[mode];
+    return names.map(n => live.find(r => r.name === n)).filter(Boolean);
+  }
+  if (mode === 'custom') {
+    const picks = S.planCustomGoals;
+    const out = [];
+    for (const t of types) {
+      const name = picks[t];
+      if (!name) continue;
+      const r = live.find(x => x.name === name);
+      if (r) out.push(r);
+    }
+    return out;
+  }
+  return [];
+}
+
+/** Score helpers for intermediate scoring. */
+function plannerIngSetFor(recipe, nameToIdx) {
+  const s = new Set();
+  for (const ing of recipe.ingredients) {
+    const i = nameToIdx.get(ing.name);
+    if (i != null) s.add(i);
+  }
+  return s;
+}
+
+/** Compute candidate intermediates for the given goal set. */
+function pickPlannerIntermediates(goals, nameToIdx) {
+  const { recipes } = S.data;
+  const live = recipes.filter(r => !r.is_placeholder);
+
+  // final_ings = union of all goal ings
+  const finalIngs = new Set();
+  for (const g of goals) {
+    for (const ing of g.ingredients) {
+      const i = nameToIdx.get(ing.name); if (i != null) finalIngs.add(i);
+    }
+  }
+  const goalNames = new Set(goals.map(g => g.name));
+
+  // candidate pool: tier ≤ +61%, not in goal set, ings overlap with finalIngs
+  const candidates = live
+    .filter(r => r.tier_bonus < 0.78 && r.tier_bonus >= 0.35 && !goalNames.has(r.name))
+    .map(r => {
+      const ingSet = plannerIngSetFor(r, nameToIdx);
+      const overlapAll = [...ingSet].filter(i => finalIngs.has(i)).length;
+      if (overlapAll === 0) return null;
+      const wastePerGoal = [...ingSet].filter(i => !finalIngs.has(i)).length;
+      const perGoalCoverage = goals.map(g => {
+        const gIngs = plannerIngSetFor(g, nameToIdx);
+        const overlap = [...ingSet].filter(i => gIngs.has(i)).length;
+        return { recipe: g, overlap, coverage: overlap / gIngs.size };
+      });
+      return {
+        recipe: r,
+        ingSet,
+        waste: wastePerGoal,
+        overlapAll,
+        perGoal: perGoalCoverage,
+        value: r.score_final,
+      };
+    })
+    .filter(Boolean);
+
+  if (candidates.length === 0) return { selected: [], finalIngs };
+
+  const algo = S.planAlgo;
+
+  if (algo === 'local') {
+    // For each goal, pick top-1 C maximizing coverage(C,G) * value(C) - W * waste(C)
+    const avgValue = candidates.reduce((s, c) => s + c.value, 0) / candidates.length;
+    const W = PLAN_WEIGHTS.wasteLocal * avgValue;
+    const picked = new Set();
+    const out = [];
+    for (const g of goals) {
+      let best = null, bestScore = -Infinity;
+      for (const c of candidates) {
+        if (picked.has(c.recipe.name)) continue;
+        const cov = c.perGoal.find(pg => pg.recipe.name === g.name);
+        if (!cov || cov.overlap === 0) continue;
+        const s = cov.coverage * c.value - W * c.waste;
+        if (s > bestScore) { bestScore = s; best = c; }
+      }
+      if (best) { picked.add(best.recipe.name); out.push(best); }
+    }
+    return { selected: out, finalIngs };
   }
 
-  if (targetRecipes.length === 0) {
-    summary.innerHTML = '<p>此組合沒有符合的料理，請降低目標階級。</p>';
-    stepsEl.innerHTML = '';
-    badgesEl.innerHTML = '';
+  // GLOBAL: enumerate subsets size 0..3 from top-N candidates (capped for tractability)
+  const topCands = [...candidates].sort((a, b) => b.value - a.value).slice(0, 16);
+  const subsetScore = (subset) => {
+    if (subset.length === 0) return 0;
+    const unionExtra = new Set();
+    for (const c of subset) for (const i of c.ingSet) if (!finalIngs.has(i)) unionExtra.add(i);
+    let coveredGoals = 0;
+    for (const g of goals) {
+      let covered = false;
+      for (const c of subset) {
+        const pg = c.perGoal.find(x => x.recipe.name === g.name);
+        if (pg && pg.overlap > 0) { covered = true; break; }
+      }
+      if (covered) coveredGoals++;
+    }
+    const valueSum = subset.reduce((s, c) => s + c.value, 0);
+    return valueSum
+      + PLAN_WEIGHTS.coverageBonus * coveredGoals
+      - PLAN_WEIGHTS.wasteGlobal * unionExtra.size;
+  };
+
+  let bestSubset = [];
+  let bestScore = -Infinity;
+  // size 1, 2, 3 (size 0 = bestScore baseline)
+  for (let k = 1; k <= 3; k++) {
+    const idxArr = Array(k).fill(0);
+    const recurse = (depth, start) => {
+      if (depth === k) {
+        const subset = idxArr.map(ix => topCands[ix]);
+        const s = subsetScore(subset);
+        if (s > bestScore) { bestScore = s; bestSubset = subset.slice(); }
+        return;
+      }
+      for (let i = start; i < topCands.length; i++) {
+        idxArr[depth] = i;
+        recurse(depth + 1, i + 1);
+      }
+    };
+    recurse(0, 0);
+  }
+  return { selected: bestSubset, finalIngs };
+}
+
+function buildPlanner() {
+  const { ingredients } = S.data;
+  const summary    = document.getElementById('plan-summary');
+  const goalsEl    = document.getElementById('plan-goals');
+  const intersEl   = document.getElementById('plan-inters');
+  const stepsEl    = document.getElementById('plan-steps');
+
+  const goals = pickPlannerGoals();
+  goalsEl.innerHTML = '';
+  intersEl.innerHTML = '';
+  stepsEl.innerHTML = '';
+
+  if (goals.length === 0) {
+    summary.innerHTML = '<p style="color:var(--dessert)">目標尚未設定。請從「目標來源」選擇套組或自選 3 道。</p>';
     return;
   }
 
-  // Map target recipes -> required ing indices
   const nameToIdx = new Map(ingredients.map((x, i) => [x.name, i]));
-  const targetData = targetRecipes.map(r => ({
-    recipe: r,
-    needSet: new Set(r.ingredients.map(ing => nameToIdx.get(ing.name)).filter(i => i != null)),
-  }));
+  const { selected: intermediates, finalIngs } = pickPlannerIntermediates(goals, nameToIdx);
 
-  const needNames = new Set();
-  for (const r of targetRecipes) for (const ing of r.ingredients) needNames.add(ing.name);
-  const needIndices = [...needNames].map(n => nameToIdx.get(n)).filter(i => i != null);
+  // Combined ing set to grind
+  const allIngs = new Set(finalIngs);
+  for (const c of intermediates) for (const i of c.ingSet) allIngs.add(i);
 
-  const have = needIndices.filter(i => S.owned.has(i));
-  const missing = needIndices.filter(i => !S.owned.has(i));
-
-  // ── Simulate ordered path ─────────────────────────────────
-  // From current owned, repeatedly pick best next missing ing.
-  const cookableCount = (ownedSet) => {
-    let c = 0;
-    const perType = { curry: 0, salad: 0, dessert: 0 };
-    for (const td of targetData) {
-      let ok = true;
-      for (const i of td.needSet) { if (!ownedSet.has(i)) { ok = false; break; } }
-      if (ok) { c++; perType[td.recipe.type_en]++; }
+  // Compute initial cookable
+  const isCooked = (recipe, ownedSet) => {
+    for (const ing of recipe.ingredients) {
+      const i = nameToIdx.get(ing.name); if (i == null) return false;
+      if (!ownedSet.has(i)) return false;
     }
-    return { total: c, perType };
+    return true;
   };
+  const initialOwned = new Set(S.owned);
+  const initGoalsCooked = goals.filter(g => isCooked(g, initialOwned)).length;
+  const initInterCooked = intermediates.filter(c => isCooked(c.recipe, initialOwned)).length;
 
-  const scoreCandidate = (ownedSet, before) => {
-    const after = cookableCount(ownedSet);
-    const gain = after.total - before.total;
-    if (focus === 'worst') {
-      // bonus if it lifts a type that has 0 cooked
-      let worstBonus = 0;
-      for (const t of types) {
-        if (before.perType[t] === 0 && after.perType[t] > 0) worstBonus += 10;
-      }
-      return gain + worstBonus;
-    }
-    return gain;
-  };
-
-  const path = [];
+  // ── Path: greedy order of (allIngs \ owned) ──────────────
+  const focus = S.planFocus;
+  const remaining = [...allIngs].filter(i => !S.owned.has(i));
   const simOwned = new Set(S.owned);
-  let remaining = missing.slice();
-  let safety = remaining.length + 2;
-  while (remaining.length > 0 && safety-- > 0) {
-    const before = cookableCount(simOwned);
-    let bestI = -1, bestScore = -Infinity, bestAfter = null;
+  const stepRecords = [];
+  while (remaining.length > 0) {
+    let bestI = -1, bestScore = -Infinity, bestUnlock = null;
+    const beforePerType = { curry: 0, salad: 0, dessert: 0 };
+    for (const g of goals) if (isCooked(g, simOwned)) beforePerType[g.type_en]++;
+
     for (const i of remaining) {
       simOwned.add(i);
-      let s = scoreCandidate(simOwned, before);
-      if (algo === 'lookahead') {
-        // peek best next gain
-        let bestNext = 0;
-        const mid = cookableCount(simOwned);
-        for (const j of remaining) {
-          if (j === i) continue;
-          simOwned.add(j);
-          const after2 = cookableCount(simOwned);
-          const g = after2.total - mid.total;
-          if (g > bestNext) bestNext = g;
-          simOwned.delete(j);
-        }
-        s += bestNext * 0.5;
+      let interUnlocked = 0, finalUnlocked = 0;
+      const newlyTypes = { curry: 0, salad: 0, dessert: 0 };
+      for (const c of intermediates) {
+        if (!isCooked(c.recipe, simOwned)) continue;
+        // count only if it just became cooked
+        simOwned.delete(i);
+        const was = isCooked(c.recipe, simOwned);
+        simOwned.add(i);
+        if (!was) interUnlocked++;
       }
+      for (const g of goals) {
+        if (!isCooked(g, simOwned)) continue;
+        simOwned.delete(i);
+        const was = isCooked(g, simOwned);
+        simOwned.add(i);
+        if (!was) { finalUnlocked++; newlyTypes[g.type_en]++; }
+      }
+      let s = interUnlocked * 1.0 + finalUnlocked * 1.5;
+      if (focus === 'worst') {
+        for (const t of ['curry','salad','dessert']) {
+          if (beforePerType[t] === 0 && newlyTypes[t] > 0) s += PLAN_WEIGHTS.worstBoost;
+        }
+      }
+      // Deterministic tie-break: prefer more intermediates → lower in-game id
+      s = s * 1000 + interUnlocked * 10 + (100 - i);
       simOwned.delete(i);
-      if (s > bestScore) { bestScore = s; bestI = i; }
+      if (s > bestScore) {
+        bestScore = s; bestI = i;
+        bestUnlock = { interUnlocked, finalUnlocked };
+      }
     }
     if (bestI < 0) break;
     simOwned.add(bestI);
-    const after = cookableCount(simOwned);
-    const gain = after.total - before.total;
-    path.push({
-      ing: ingredients[bestI],
+    // record which dishes are now cooked
+    const stepInters = intermediates.filter(c => isCooked(c.recipe, simOwned)).map(c => c.recipe.name);
+    const stepGoals  = goals.filter(g => isCooked(g, simOwned)).map(g => g.name);
+    stepRecords.push({
       idx: bestI,
-      gain,
-      cookable: after.total,
-      perType: after.perType,
-      lowGain: minInter > 0 && gain < minInter,
+      ing: ingredients[bestI],
+      interUnlocked: bestUnlock.interUnlocked,
+      finalUnlocked: bestUnlock.finalUnlocked,
+      intersCooked: stepInters,
+      goalsCooked: stepGoals,
     });
-    remaining = remaining.filter(x => x !== bestI);
+    const ix = remaining.indexOf(bestI);
+    if (ix >= 0) remaining.splice(ix, 1);
   }
 
-  const initial = cookableCount(S.owned);
+  // ── Render summary ─────────────────────────────────────────
+  const haveAll = [...allIngs].filter(i => S.owned.has(i)).length;
   summary.innerHTML = `
-    <p>目標：<strong>${targetRecipes.length} 道料理</strong>　起點可煮：<strong style="color:var(--owned)">${initial.total}</strong> / ${targetRecipes.length}</p>
-    <p>需要食材：<strong>${needIndices.length} 種</strong>　已有 <strong style="color:var(--owned)">${have.length}</strong> / 還缺 <strong style="color:var(--dessert)">${missing.length}</strong>　補完路徑：<strong>${path.length} 步</strong></p>`;
+    <p>目標 3 道（${goals.map(g=>`<span style="opacity:0.9">${g.name}</span>`).join(' / ')}）</p>
+    <p>中繼 ${intermediates.length} 道　須抓食材 <strong>${allIngs.size}</strong>　已有 <strong style="color:var(--owned)">${haveAll}</strong>　路徑 <strong>${stepRecords.length} 步</strong></p>
+    <p>起點：目標可煮 <strong style="color:var(--owned)">${initGoalsCooked}</strong>/${goals.length}　中繼可煮 <strong style="color:var(--tier-high)">${initInterCooked}</strong>/${intermediates.length}</p>`;
 
-  // ── Render ordered steps ───────────────────────────────────
-  stepsEl.innerHTML = '';
-  path.forEach((step, idx) => {
-    const row = document.createElement('div');
-    row.className = 'plan-step' + (step.lowGain ? ' lowgain' : '');
-    const perTypeStr = `🍛${step.perType.curry} 🥗${step.perType.salad} 🧁${step.perType.dessert}`;
-    row.innerHTML = `
-      <span class="ps-num">${idx + 1}</span>
-      ${ingIconHTML(step.ing, 18)}
-      <span class="ps-name">${step.ing.name}</span>
-      <span class="ps-after">+${step.gain} 道 → ${step.cookable}/${targetRecipes.length}　${perTypeStr}</span>`;
-    row.addEventListener('click', () => toggleOwned(step.idx));
-    row.addEventListener('mouseenter', () => {
-      highlightIngredient(step.idx);
-      ghostPreviewIng(step.idx);
-    });
-    row.addEventListener('mouseleave', () => {
-      clearHighlight();
-      clearGhostPreview();
-    });
-    stepsEl.appendChild(row);
-  });
+  // ── Render goals + intermediates blocks ────────────────────
+  if (goals.length > 0) {
+    const label = document.createElement('div');
+    label.className = 'plan-section-label';
+    label.textContent = '🔴 目標料理 (Final)';
+    goalsEl.appendChild(label);
+    for (const g of goals) {
+      const row = document.createElement('div');
+      const cooked = isCooked(g, initialOwned);
+      row.className = 'plan-goal-row' + (cooked ? ' cooked' : '');
+      const typeIcon = ({curry:'🍛',salad:'🥗',dessert:'🧁'})[g.type_en];
+      row.innerHTML = `
+        <span class="pg-type">${typeIcon}</span>
+        <span class="pg-name">${g.name}</span>
+        <span class="pg-tier">+${Math.round(g.tier_bonus*100)}%</span>
+        <span class="pg-stat">${cooked?'✓ 可煮':'未達成'}</span>`;
+      row.addEventListener('mouseenter', () => {
+        for (const ing of g.ingredients) {
+          const i = nameToIdx.get(ing.name);
+          if (i != null && !S.owned.has(i)) ghostPreviewIng(i);
+        }
+      });
+      row.addEventListener('mouseleave', () => clearGhostPreview());
+      goalsEl.appendChild(row);
+    }
+  }
+  if (intermediates.length > 0) {
+    const label = document.createElement('div');
+    label.className = 'plan-section-label';
+    label.textContent = '🟡 中繼料理 (Intermediate)';
+    intersEl.appendChild(label);
+    for (const c of intermediates) {
+      const row = document.createElement('div');
+      const cooked = isCooked(c.recipe, initialOwned);
+      row.className = 'plan-inter-row' + (cooked ? ' cooked' : '');
+      const typeIcon = ({curry:'🍛',salad:'🥗',dessert:'🧁'})[c.recipe.type_en];
+      row.innerHTML = `
+        <span class="pg-type">${typeIcon}</span>
+        <span class="pg-name">${c.recipe.name}</span>
+        <span class="pg-tier">+${Math.round(c.recipe.tier_bonus*100)}%</span>
+        <span class="pg-stat">${cooked?'✓':`重疊 ${c.overlapAll}/廢 ${c.waste}`}</span>`;
+      row.addEventListener('mouseenter', () => {
+        for (const ing of c.recipe.ingredients) {
+          const i = nameToIdx.get(ing.name);
+          if (i != null && !S.owned.has(i)) ghostPreviewIng(i);
+        }
+      });
+      row.addEventListener('mouseleave', () => clearGhostPreview());
+      intersEl.appendChild(row);
+    }
+  }
 
-  badgesEl.innerHTML = '';
-  for (const i of needIndices) {
-    const ing = ingredients[i];
-    const badge = document.createElement('div');
-    const cls = S.owned.has(i) ? 'have' : 'missing';
-    badge.className = `plan-badge ${cls}`;
-    badge.innerHTML = `${ingIconHTML(ing, 14)} ${ing.name}`;
-    badge.style.cursor = 'pointer';
-    badge.addEventListener('click', () => toggleOwned(i));
-    badge.addEventListener('mouseenter', () => {
-      highlightIngredient(i);
-      if (!S.owned.has(i)) ghostPreviewIng(i);
+  // ── Render ordered path ────────────────────────────────────
+  if (stepRecords.length > 0) {
+    const label = document.createElement('div');
+    label.className = 'plan-section-label';
+    label.textContent = `📍 補食材路徑 (${stepRecords.length} 步)`;
+    stepsEl.appendChild(label);
+    stepRecords.forEach((step, idx) => {
+      if (idx > 0) {
+        const arrow = document.createElement('div');
+        arrow.className = 'plan-arrow';
+        arrow.textContent = '↓';
+        stepsEl.appendChild(arrow);
+      }
+      const row = document.createElement('div');
+      row.className = 'plan-step';
+      if (idx === 0) row.classList.add('start');
+      if (idx === stepRecords.length - 1) row.classList.add('end');
+      const tierStr = `<span class="ps-tiers">${step.interUnlocked > 0 ? `<span class="ps-tier gain">🟡+${step.interUnlocked}</span>` : ''}${step.finalUnlocked > 0 ? `<span class="ps-tier gain">🔴+${step.finalUnlocked}</span>` : ''}${step.interUnlocked === 0 && step.finalUnlocked === 0 ? '<span class="ps-tier">建材</span>' : ''}</span>`;
+      row.innerHTML = `
+        <span class="ps-num">${idx + 1}</span>
+        ${ingIconHTML(step.ing, 18)}
+        <span class="ps-name">${step.ing.name}</span>
+        ${tierStr}`;
+      row.addEventListener('click', () => toggleOwned(step.idx));
+      row.addEventListener('mouseenter', () => {
+        highlightIngredient(step.idx);
+        ghostPreviewIng(step.idx);
+      });
+      row.addEventListener('mouseleave', () => {
+        clearHighlight();
+        clearGhostPreview();
+      });
+      stepsEl.appendChild(row);
     });
-    badge.addEventListener('mouseleave', () => {
-      clearHighlight();
-      clearGhostPreview();
-    });
-    badgesEl.appendChild(badge);
+  } else {
+    const done = document.createElement('div');
+    done.style.cssText = 'padding:8px;text-align:center;color:var(--owned);font-size:12px;';
+    done.textContent = '🎉 所有目標食材都已收集！';
+    stepsEl.appendChild(done);
   }
 }
 
@@ -3465,9 +3820,15 @@ function saveHash() {
   if (S.recMode !== 'most') params.set('recMode', S.recMode);
   if (S.tab3ShowIngLabels) params.set('ingLbl', '1');
   if (!S.tab3ShowTypeLabels) params.set('noTypeLbl', '1');
-  if (S.planAlgo !== 'greedy') params.set('planAlgo', S.planAlgo);
+  if (S.planAlgo !== 'local') params.set('planAlgo', S.planAlgo);
   if (S.planFocus !== 'efficiency') params.set('planFocus', S.planFocus);
-  if (S.planMinInter !== 0) params.set('planMin', S.planMinInter);
+  if (S.planGoalMode !== 'smart') params.set('planGoal', S.planGoalMode);
+  if (S.planGoalMode === 'custom') {
+    const c = S.planCustomGoals;
+    if (c.curry || c.salad || c.dessert) {
+      params.set('planCustom', [c.curry||'', c.salad||'', c.dessert||''].join('|'));
+    }
+  }
   const hash = params.toString();
   history.replaceState(null, '', hash ? '#' + hash : window.location.pathname);
 }
@@ -3497,7 +3858,11 @@ function loadHash() {
   if (params.get('noTypeLbl'))  S.tab3ShowTypeLabels = false;
   if (params.get('planAlgo'))   S.planAlgo = params.get('planAlgo');
   if (params.get('planFocus'))  S.planFocus = params.get('planFocus');
-  if (params.get('planMin'))    S.planMinInter = parseInt(params.get('planMin'));
+  if (params.get('planGoal'))   S.planGoalMode = params.get('planGoal');
+  if (params.get('planCustom')) {
+    const [curry, salad, dessert] = params.get('planCustom').split('|');
+    S.planCustomGoals = { curry: curry || null, salad: salad || null, dessert: dessert || null };
+  }
 }
 
 /* ── Tab routing ─────────────────────────────────────────────────── */
@@ -4157,15 +4522,69 @@ function init() {
   // restore planner selects from S before first render
   document.getElementById('plan-algo').value = S.planAlgo;
   document.getElementById('plan-focus').value = S.planFocus;
-  document.getElementById('plan-minInter').value = String(S.planMinInter);
+  document.getElementById('plan-goal-mode').value = S.planGoalMode;
+  document.getElementById('plan-custom-row').style.display = S.planGoalMode === 'custom' ? '' : 'none';
   buildPlanner();
   updateOwnedDisplay();
 
-  document.getElementById('plan-tier').addEventListener('change', () => { buildPlanner(); saveHash(); });
-  document.getElementById('plan-breadth').addEventListener('change', () => buildPlanner());
+  document.getElementById('plan-goal-mode').addEventListener('change', (e) => {
+    S.planGoalMode = e.target.value;
+    document.getElementById('plan-custom-row').style.display = S.planGoalMode === 'custom' ? '' : 'none';
+    if (S.planGoalMode === 'custom' &&
+        !S.planCustomGoals.curry && !S.planCustomGoals.salad && !S.planCustomGoals.dessert) {
+      openPlannerCustomModal();
+    } else {
+      buildPlanner();
+      saveHash();
+    }
+  });
+  document.getElementById('plan-custom-btn').addEventListener('click', openPlannerCustomModal);
   document.getElementById('plan-algo').addEventListener('change', (e) => { S.planAlgo = e.target.value; buildPlanner(); saveHash(); });
   document.getElementById('plan-focus').addEventListener('change', (e) => { S.planFocus = e.target.value; buildPlanner(); saveHash(); });
-  document.getElementById('plan-minInter').addEventListener('change', (e) => { S.planMinInter = parseInt(e.target.value); buildPlanner(); saveHash(); });
+
+  // custom-goal modal
+  document.getElementById('plan-custom-close').addEventListener('click', closePlannerCustomModal);
+  document.getElementById('plan-custom-confirm').addEventListener('click', () => {
+    S.planCustomGoals = {
+      curry:   document.getElementById('plan-custom-curry').value || null,
+      salad:   document.getElementById('plan-custom-salad').value || null,
+      dessert: document.getElementById('plan-custom-dessert').value || null,
+    };
+    closePlannerCustomModal();
+    buildPlanner(); saveHash();
+  });
+  document.getElementById('plan-custom-only-high').addEventListener('change', (e) => {
+    S.planCustomOnlyHigh = e.target.checked;
+    populatePlannerCustomSelects();
+  });
+  document.getElementById('plan-custom-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'plan-custom-modal') closePlannerCustomModal();
+  });
+}
+
+function populatePlannerCustomSelects() {
+  const { recipes } = S.data;
+  const live = recipes.filter(r => !r.is_placeholder);
+  const minTier = S.planCustomOnlyHigh ? 0.61 : 0;
+  const types = [['curry','curry'],['salad','salad'],['dessert','dessert']];
+  for (const [t, id] of types) {
+    const sel = document.getElementById('plan-custom-' + id);
+    const pool = live.filter(r => r.type_en === t && r.tier_bonus >= minTier)
+                     .sort((a,b) => b.tier_bonus - a.tier_bonus || b.score_final - a.score_final);
+    const current = S.planCustomGoals[t];
+    sel.innerHTML = '<option value="">— 不選 —</option>' +
+      pool.map(r => `<option value="${r.name}"${r.name===current?' selected':''}>+${Math.round(r.tier_bonus*100)}% · ${r.name} (${r.score_final.toLocaleString()})</option>`).join('');
+  }
+}
+
+function openPlannerCustomModal() {
+  document.getElementById('plan-custom-only-high').checked = S.planCustomOnlyHigh;
+  populatePlannerCustomSelects();
+  document.getElementById('plan-custom-modal').hidden = false;
+}
+
+function closePlannerCustomModal() {
+  document.getElementById('plan-custom-modal').hidden = true;
 }
 
 loadData();
