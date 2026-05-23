@@ -512,6 +512,18 @@ body {
   letter-spacing: 0.05em; margin: 6px 0 3px; font-weight: 600;
 }
 
+.plan-math {
+  font-size: 10px; color: var(--text-muted);
+  padding: 3px 6px 3px 28px;
+  border-left: 1px dashed var(--border);
+  margin: -2px 0 4px 4px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: rgba(255,255,255,0.02);
+}
+.plan-math .pm-key { color: var(--text); }
+.plan-math .pm-win { color: var(--owned); }
+.plan-math .pm-lose { color: var(--dessert); opacity: 0.8; }
+
 /* ── Modal (custom goal picker) ─────────────────────────────── */
 .modal-overlay {
   position: fixed; inset: 0;
@@ -2285,6 +2297,12 @@ body.hide-card-meta .recipe-card .recipe-card-meta {
               <option value="worst">先補弱系</option>
             </select>
           </div>
+          <div class="plan-row">
+            <label></label>
+            <label class="tier-chk" style="flex:1;">
+              <input type="checkbox" id="plan-show-math"> 🔍 顯示分數計算（解釋為何這個排序）
+            </label>
+          </div>
         </div>
         <div class="plan-summary" id="plan-summary"></div>
         <div class="plan-goals" id="plan-goals"></div>
@@ -2408,6 +2426,7 @@ const S = {
   planGoalMode: 'smart',     // 'smart' | 'coffee' | 'avocado' | 'custom'
   planCustomGoals: { curry: null, salad: null, dessert: null },  // recipe names for custom mode
   planCustomOnlyHigh: true,  // custom picker: filter ≥+61% by default
+  planShowMath: false,       // show per-row score breakdown for transparency
 };
 
 const TYPE_META = {
@@ -3518,18 +3537,22 @@ function pickPlannerIntermediates(goals, nameToIdx) {
     const W = PLAN_WEIGHTS.wasteLocal * avgValue;
     const picked = new Set();
     const out = [];
+    const mathByGoal = {}; // goal.name -> [{candidate, score, breakdown}, ...] sorted desc
     for (const g of goals) {
       let best = null, bestScore = -Infinity;
+      const scored = [];
       for (const c of candidates) {
-        if (picked.has(c.recipe.name)) continue;
         const cov = c.perGoal.find(pg => pg.recipe.name === g.name);
         if (!cov || cov.overlap === 0) continue;
         const s = cov.coverage * c.value - W * c.waste;
-        if (s > bestScore) { bestScore = s; best = c; }
+        scored.push({ c, s, overlap: cov.overlap, coverage: cov.coverage, value: c.value, waste: c.waste });
+        if (!picked.has(c.recipe.name) && s > bestScore) { bestScore = s; best = c; }
       }
+      scored.sort((a, b) => b.s - a.s);
+      mathByGoal[g.name] = { W, avgValue, scored };
       if (best) { picked.add(best.recipe.name); out.push(best); }
     }
-    return { selected: out, finalIngs };
+    return { selected: out, finalIngs, mathLocal: mathByGoal, algoUsed: 'local' };
   }
 
   // GLOBAL: enumerate subsets size 0..3 from top-N candidates.
@@ -3565,14 +3588,22 @@ function pickPlannerIntermediates(goals, nameToIdx) {
   };
 
   let bestSubset = [];
-  let bestScore = subsetScore([]);  // empty set baseline (0 extra, 0 coverage)
-  // size 1, 2, 3
+  let bestScore = subsetScore([]);
+  const allSubsets = [];  // capture for transparency
   for (let k = 1; k <= 3; k++) {
     const idxArr = Array(k).fill(0);
     const recurse = (depth, start) => {
       if (depth === k) {
         const subset = idxArr.map(ix => topCands[ix]);
         const s = subsetScore(subset);
+        const unionExtra = new Set();
+        for (const c of subset) for (const i of c.ingSet) if (!finalIngs.has(i)) unionExtra.add(i);
+        let coveredGoals = 0;
+        for (const g of goals) {
+          const gIngs = plannerIngSetFor(g, nameToIdx);
+          if (subset.some(c => [...c.ingSet].some(i => gIngs.has(i)))) coveredGoals++;
+        }
+        allSubsets.push({ subset, score: s, extra: unionExtra.size, covered: coveredGoals, size: subset.length });
         if (s > bestScore) { bestScore = s; bestSubset = subset.slice(); }
         return;
       }
@@ -3583,7 +3614,8 @@ function pickPlannerIntermediates(goals, nameToIdx) {
     };
     recurse(0, 0);
   }
-  return { selected: bestSubset, finalIngs };
+  allSubsets.sort((a, b) => b.score - a.score);
+  return { selected: bestSubset, finalIngs, topCands, topSubsets: allSubsets.slice(0, 8), algoUsed: 'global' };
 }
 
 function buildPlanner() {
@@ -3604,7 +3636,8 @@ function buildPlanner() {
   }
 
   const nameToIdx = new Map(ingredients.map((x, i) => [x.name, i]));
-  const { selected: intermediates, finalIngs } = pickPlannerIntermediates(goals, nameToIdx);
+  const interResult = pickPlannerIntermediates(goals, nameToIdx);
+  const { selected: intermediates, finalIngs } = interResult;
 
   // Combined ing set to grind
   const allIngs = new Set(finalIngs);
@@ -3622,54 +3655,74 @@ function buildPlanner() {
   const initGoalsCooked = goals.filter(g => isCooked(g, initialOwned)).length;
   const initInterCooked = intermediates.filter(c => isCooked(c.recipe, initialOwned)).length;
 
+  // Precompute "appears-in count": how many target recipes (final + intermediate) include each ing.
+  // Used as a smart tie-break when no immediate unlock — picks the ing closest to MORE recipes first.
+  const appearsInCount = new Array(ingredients.length).fill(0);
+  for (const r of [...goals, ...intermediates.map(c => c.recipe)]) {
+    for (const ing of r.ingredients) {
+      const i = nameToIdx.get(ing.name);
+      if (i != null) appearsInCount[i]++;
+    }
+  }
+
   // ── Path: greedy order of (allIngs \ owned) ──────────────
   const focus = S.planFocus;
   const remaining = [...allIngs].filter(i => !S.owned.has(i));
   const simOwned = new Set(S.owned);
   const stepRecords = [];
   while (remaining.length > 0) {
-    let bestI = -1, bestScore = -Infinity, bestUnlock = null;
+    let bestI = -1, bestScore = -Infinity, bestUnlock = null, bestBreakdown = null;
     const beforePerType = { curry: 0, salad: 0, dessert: 0 };
     for (const g of goals) if (isCooked(g, simOwned)) beforePerType[g.type_en]++;
+
+    const candidateScores = [];
 
     for (const i of remaining) {
       simOwned.add(i);
       let interUnlocked = 0, finalUnlocked = 0;
       const newlyTypes = { curry: 0, salad: 0, dessert: 0 };
+      const interNames = [], finalNames = [];
       for (const c of intermediates) {
         if (!isCooked(c.recipe, simOwned)) continue;
-        // count only if it just became cooked
         simOwned.delete(i);
         const was = isCooked(c.recipe, simOwned);
         simOwned.add(i);
-        if (!was) interUnlocked++;
+        if (!was) { interUnlocked++; interNames.push(c.recipe.name); }
       }
       for (const g of goals) {
         if (!isCooked(g, simOwned)) continue;
         simOwned.delete(i);
         const was = isCooked(g, simOwned);
         simOwned.add(i);
-        if (!was) { finalUnlocked++; newlyTypes[g.type_en]++; }
+        if (!was) { finalUnlocked++; newlyTypes[g.type_en]++; finalNames.push(g.name); }
       }
-      let s = interUnlocked * 1.0 + finalUnlocked * 1.5;
+      let raw = interUnlocked * 1.0 + finalUnlocked * 1.5;
+      let worstBoost = 0;
       if (focus === 'worst') {
         for (const t of ['curry','salad','dessert']) {
-          if (beforePerType[t] === 0 && newlyTypes[t] > 0) s += PLAN_WEIGHTS.worstBoost;
+          if (beforePerType[t] === 0 && newlyTypes[t] > 0) worstBoost += PLAN_WEIGHTS.worstBoost;
         }
       }
-      // Deterministic tie-break: prefer more intermediates → lower in-game id
-      s = s * 1000 + interUnlocked * 10 + (100 - i);
+      raw += worstBoost;
+      // Tie-break (lexicographic via scaled add):
+      // - raw score (weight 100000)
+      // - appears-in count: prefer ing that's still needed by MORE recipes (weight 100)
+      // - lower in-game id (weight 1)
+      const tieBroken = raw * 100000 + appearsInCount[i] * 100 + (100 - i);
       simOwned.delete(i);
-      if (s > bestScore) {
-        bestScore = s; bestI = i;
+      const entry = { i, name: ingredients[i].name, interUnlocked, finalUnlocked, raw, worstBoost, appears: appearsInCount[i], tieBroken, interNames, finalNames };
+      candidateScores.push(entry);
+      if (tieBroken > bestScore) {
+        bestScore = tieBroken; bestI = i;
         bestUnlock = { interUnlocked, finalUnlocked };
+        bestBreakdown = entry;
       }
     }
     if (bestI < 0) break;
     simOwned.add(bestI);
-    // record which dishes are now cooked
     const stepInters = intermediates.filter(c => isCooked(c.recipe, simOwned)).map(c => c.recipe.name);
     const stepGoals  = goals.filter(g => isCooked(g, simOwned)).map(g => g.name);
+    candidateScores.sort((a, b) => b.tieBroken - a.tieBroken);
     stepRecords.push({
       idx: bestI,
       ing: ingredients[bestI],
@@ -3677,6 +3730,8 @@ function buildPlanner() {
       finalUnlocked: bestUnlock.finalUnlocked,
       intersCooked: stepInters,
       goalsCooked: stepGoals,
+      breakdown: bestBreakdown,
+      topRivals: candidateScores.slice(0, 3),
     });
     const ix = remaining.indexOf(bestI);
     if (ix >= 0) remaining.splice(ix, 1);
@@ -3718,7 +3773,7 @@ function buildPlanner() {
   if (intermediates.length > 0) {
     const label = document.createElement('div');
     label.className = 'plan-section-label';
-    label.textContent = '🟡 中繼料理 (Intermediate)';
+    label.textContent = `🟡 中繼料理 (${interResult.algoUsed === 'global' ? 'Global' : 'Local'}・${intermediates.length} 道)`;
     intersEl.appendChild(label);
     for (const c of intermediates) {
       const row = document.createElement('div');
@@ -3738,6 +3793,40 @@ function buildPlanner() {
       });
       row.addEventListener('mouseleave', () => clearGhostPreview());
       intersEl.appendChild(row);
+    }
+
+    // Math breakdown (toggle-controlled)
+    if (S.planShowMath) {
+      const mathBox = document.createElement('div');
+      mathBox.className = 'plan-math';
+      if (interResult.algoUsed === 'local' && interResult.mathLocal) {
+        const W = Object.values(interResult.mathLocal)[0]?.W ?? 0;
+        const avgV = Object.values(interResult.mathLocal)[0]?.avgValue ?? 0;
+        let html = `<div><span class="pm-key">公式</span>: score(C,G) = coverage × value − W × waste　(W = 0.3 × avg = ${W.toFixed(0)}; avg value = ${avgV.toFixed(0)})</div>`;
+        for (const g of goals) {
+          const m = interResult.mathLocal[g.name];
+          if (!m) continue;
+          html += `<div style="margin-top:4px;"><span class="pm-key">${g.name}</span> 前 4 名：</div>`;
+          m.scored.slice(0, 4).forEach((s, idx) => {
+            const win = idx === 0 && intermediates.some(c => c.recipe.name === s.c.recipe.name);
+            const cls = win ? 'pm-win' : '';
+            html += `<div class="${cls}">　${idx+1}. ${s.c.recipe.name} (+${Math.round(s.c.recipe.tier_bonus*100)}%): ${s.coverage.toFixed(2)} × ${s.value.toLocaleString()} − ${W.toFixed(0)} × ${s.waste} = <b>${s.s.toFixed(0)}</b>${win?' ✓':''}</div>`;
+          });
+        }
+        mathBox.innerHTML = html;
+      } else if (interResult.algoUsed === 'global' && interResult.topSubsets) {
+        let html = `<div><span class="pm-key">公式</span>: −extra×100k + cov×1k + size×50 + normVal×10　(extra = 額外食材, cov = 涵蓋目標數)</div>`;
+        html += `<div style="margin-top:4px;"><span class="pm-key">前 5 名子集：</span></div>`;
+        interResult.topSubsets.slice(0, 5).forEach((sub, idx) => {
+          const names = sub.subset.map(c => c.recipe.name).join(' + ');
+          const isChosen = sub.subset.length === intermediates.length &&
+                           sub.subset.every(c => intermediates.some(x => x.recipe.name === c.recipe.name));
+          const cls = isChosen ? 'pm-win' : (sub.extra > 0 ? 'pm-lose' : '');
+          html += `<div class="${cls}">　${idx+1}. extra=${sub.extra}, cov=${sub.covered}, size=${sub.size} → <b>${sub.score.toFixed(0)}</b>　[${names}]${isChosen?' ✓':''}</div>`;
+        });
+        mathBox.innerHTML = html;
+      }
+      intersEl.appendChild(mathBox);
     }
   }
 
@@ -3774,6 +3863,24 @@ function buildPlanner() {
         clearGhostPreview();
       });
       stepsEl.appendChild(row);
+
+      // Per-step math breakdown
+      if (S.planShowMath && step.breakdown) {
+        const m = document.createElement('div');
+        m.className = 'plan-math';
+        const b = step.breakdown;
+        let html = `<div><span class="pm-key">分數</span>: raw = inter×1 + final×1.5${b.worstBoost?` + 弱系+${b.worstBoost}`:''} = <b>${b.raw}</b>　|　tie-break: raw×100k + 出現次數(${b.appears})×100 + id票 = <b>${b.tieBroken.toLocaleString()}</b></div>`;
+        if (b.interNames.length || b.finalNames.length) {
+          html += `<div class="pm-win">　→ 此步驟解鎖：${b.interNames.map(n=>'🟡'+n).concat(b.finalNames.map(n=>'🔴'+n)).join('、')}</div>`;
+        }
+        if (step.topRivals.length > 1) {
+          html += `<div style="margin-top:2px;"><span class="pm-key">同步落選</span>：`;
+          html += step.topRivals.slice(1, 3).map(r => `${r.name}(raw=${r.raw}, 出現=${r.appears}, 票=${r.tieBroken.toLocaleString()})`).join('；');
+          html += `</div>`;
+        }
+        m.innerHTML = html;
+        stepsEl.appendChild(m);
+      }
     });
   } else {
     const done = document.createElement('div');
@@ -3834,6 +3941,7 @@ function saveHash() {
   if (S.planAlgo !== 'local') params.set('planAlgo', S.planAlgo);
   if (S.planFocus !== 'efficiency') params.set('planFocus', S.planFocus);
   if (S.planGoalMode !== 'smart') params.set('planGoal', S.planGoalMode);
+  if (S.planShowMath) params.set('planMath', '1');
   if (S.planGoalMode === 'custom') {
     const c = S.planCustomGoals;
     if (c.curry || c.salad || c.dessert) {
@@ -3870,6 +3978,7 @@ function loadHash() {
   if (params.get('planAlgo'))   S.planAlgo = params.get('planAlgo');
   if (params.get('planFocus'))  S.planFocus = params.get('planFocus');
   if (params.get('planGoal'))   S.planGoalMode = params.get('planGoal');
+  if (params.get('planMath'))   S.planShowMath = true;
   if (params.get('planCustom')) {
     const [curry, salad, dessert] = params.get('planCustom').split('|');
     S.planCustomGoals = { curry: curry || null, salad: salad || null, dessert: dessert || null };
@@ -4552,6 +4661,10 @@ function init() {
   document.getElementById('plan-custom-btn').addEventListener('click', openPlannerCustomModal);
   document.getElementById('plan-algo').addEventListener('change', (e) => { S.planAlgo = e.target.value; buildPlanner(); saveHash(); });
   document.getElementById('plan-focus').addEventListener('change', (e) => { S.planFocus = e.target.value; buildPlanner(); saveHash(); });
+  document.getElementById('plan-show-math').checked = S.planShowMath;
+  document.getElementById('plan-show-math').addEventListener('change', (e) => {
+    S.planShowMath = e.target.checked; buildPlanner(); saveHash();
+  });
 
   // custom-goal modal
   document.getElementById('plan-custom-close').addEventListener('click', closePlannerCustomModal);
