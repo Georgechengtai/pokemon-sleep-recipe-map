@@ -85,11 +85,7 @@ def sigma_free(owned: frozenset[int], world: World) -> int:
 
 
 def sigma_focused(owned: frozenset[int], world: World, scope: frozenset[int]) -> int:
-    """Goal-scoped σ: only recipes whose ings ⊆ scope count.
-
-    `scope` is the set of ings the user is willing to grind (typically the goal's
-    union of ings; can be extended to include explicit optionals).
-    """
+    """v1 (max-per-type, has undercount bug). Kept for comparison only."""
     total = 0
     for t in ('curry', 'salad', 'dessert'):
         best = 0
@@ -100,33 +96,52 @@ def sigma_focused(owned: frozenset[int], world: World, scope: frozenset[int]) ->
     return total
 
 
-def sigma(owned: frozenset[int], world: World, scope: frozenset[int] | None = None) -> int:
-    """Dispatch helper: focused if scope given, else free."""
-    if scope is None:
+def sigma_sum(owned: frozenset[int], world: World, scope: frozenset[int]) -> int:
+    """σ_sum: sum of every in-scope cookable recipe's score.
+
+    Each recipe an ing newly enables gets independent credit. No max-per-type
+    suppression — pumpkin that enables both a curry and a salad gets credit
+    for BOTH, even if a higher-scoring curry is already cookable.
+    """
+    total = 0
+    for r in world.recipes:
+        if r.ings.issubset(owned) and r.ings.issubset(scope):
+            total += r.score_final
+    return total
+
+
+def sigma(owned: frozenset[int], world: World, scope: frozenset[int] | None = None,
+          goals: Sequence[Recipe] | None = None, mode: str = 'sum') -> int:
+    """Dispatch: 'sum' (default, new) | 'focused' (v1 max-per-type) | 'free' (buggy goal-blind)."""
+    if mode == 'free' or scope is None:
         return sigma_free(owned, world)
+    if mode == 'sum':
+        return sigma_sum(owned, world, scope)
     return sigma_focused(owned, world, scope)
 
 
 def path_R(start_owned: frozenset[int], path: Sequence[int], world: World,
-           alpha: float = 0.0, scope: frozenset[int] | None = None) -> float:
+           alpha: float = 0.0, scope: frozenset[int] | None = None,
+           goals: Sequence[Recipe] | None = None, mode: str = 'focused') -> float:
     """R(π) = sum of σ(O_t) over each step; optionally divided by n^α."""
     o = set(start_owned)
     total = 0
     for i in path:
         o.add(i)
-        total += sigma(frozenset(o), world, scope)
+        total += sigma(frozenset(o), world, scope, goals, mode)
     n = max(1, len(path))
     return total / (n ** alpha) if alpha > 0 else float(total)
 
 
 def sigma_trajectory(start_owned: frozenset[int], path: Sequence[int], world: World,
-                     scope: frozenset[int] | None = None) -> list[int]:
+                     scope: frozenset[int] | None = None,
+                     goals: Sequence[Recipe] | None = None, mode: str = 'focused') -> list[int]:
     """The σ value after each step. For diagnostics."""
     o = set(start_owned)
     traj = []
     for i in path:
         o.add(i)
-        traj.append(sigma(frozenset(o), world, scope))
+        traj.append(sigma(frozenset(o), world, scope, goals, mode))
     return traj
 
 
@@ -171,13 +186,9 @@ def greedy_path(
     *,
     scope: frozenset[int] | None = None,
     alpha: float = 0.0,
+    mode: str = 'focused',
 ) -> list[int]:
-    """K=1 greedy over required ings (= scope ∪ goal-ings) — picks σ-maximizing next ing.
-
-    The path is exactly the ordering of (scope ∪ goal-ings) minus start.
-    `scope` defaults to required (goal ings union). To allow extras, expand scope.
-    σ is goal-scoped: only counts recipes whose ings ⊆ scope.
-    """
+    """K=1 greedy. mode='focused' (max per type in scope) or 'goal_locked' (goals priority)."""
     req = required_ings(goals)
     effective_scope = (req | scope) if scope else req
     appears = appears_in_count(world)
@@ -188,10 +199,10 @@ def greedy_path(
 
     while pool:
         candidates = list(pool)
-        before = sigma(frozenset(owned), world, effective_scope)
-        best = None  # (gain, appears, -i, ing_idx)
+        before = sigma(frozenset(owned), world, effective_scope, goals, mode)
+        best = None
         for i in candidates:
-            gain = sigma(frozenset(owned | {i}), world, effective_scope) - before
+            gain = sigma(frozenset(owned | {i}), world, effective_scope, goals, mode) - before
             key = (gain, appears[i], -i)
             if best is None or key > best[:3]:
                 best = (gain, appears[i], -i, i)
@@ -210,10 +221,9 @@ def beam_path(
     beam: int = 20,
     alpha: float = 0.0,
     scope: frozenset[int] | None = None,
+    mode: str = 'focused',
 ) -> list[int]:
-    """Beam search over orderings of (effective_scope - owned). Ranks partial paths by R(prefix)
-    with patience α. The set of ings in the final path is fixed (= effective_scope − start_owned);
-    only the ORDER is optimized."""
+    """Beam search. mode = 'focused' or 'goal_locked'."""
     req = required_ings(goals)
     effective_scope = (req | scope) if scope else req
     pool_universe = effective_scope - start_owned
@@ -232,10 +242,9 @@ def beam_path(
                 npath = path + [i]
                 nowned = owned | {i}
                 next_frontier.append((npath, nowned))
-        # Rank by R(prefix) with patience
         def rank_key(item):
             p, _ = item
-            return (path_R(start_owned, p, world, alpha=alpha, scope=effective_scope),
+            return (path_R(start_owned, p, world, alpha=alpha, scope=effective_scope, goals=goals, mode=mode),
                     sum(appears[i] for i in p))
         next_frontier.sort(key=rank_key, reverse=True)
         frontier = next_frontier[:beam]
@@ -248,6 +257,8 @@ def two_opt_polish(
     world: World,
     alpha: float = 0.0,
     scope: frozenset[int] | None = None,
+    goals: Sequence[Recipe] | None = None,
+    mode: str = 'focused',
 ) -> list[int]:
     """Swap adjacent pairs while R improves. The set is fixed; only the order changes."""
     cur = list(path)
@@ -256,8 +267,8 @@ def two_opt_polish(
         improved = False
         for i in range(len(cur) - 1):
             swap = cur[:i] + [cur[i + 1], cur[i]] + cur[i + 2:]
-            if path_R(start_owned, swap, world, alpha=alpha, scope=scope) > \
-               path_R(start_owned, cur, world, alpha=alpha, scope=scope):
+            if path_R(start_owned, swap, world, alpha=alpha, scope=scope, goals=goals, mode=mode) > \
+               path_R(start_owned, cur, world, alpha=alpha, scope=scope, goals=goals, mode=mode):
                 cur = swap
                 improved = True
     return cur
@@ -270,39 +281,43 @@ def fmt_path(path: Sequence[int], world: World) -> str:
 
 
 def report_path(label: str, start_owned: frozenset[int], path: Sequence[int], world: World,
-                alpha: float = 0.0, scope: frozenset[int] | None = None) -> None:
+                alpha: float = 0.0, scope: frozenset[int] | None = None, mode: str = 'sum') -> None:
     print(f"\n=== {label} ===")
     print(f"  path length: {len(path)}")
-    print(f"  R(π) (α={alpha}, scope size={len(scope) if scope else 'free'}): "
-          f"{path_R(start_owned, path, world, alpha=alpha, scope=scope):,.2f}")
-    print(f"  sequence: {fmt_path(path, world)}")
-    traj = sigma_trajectory(start_owned, path, world, scope=scope)
-    print(f"  σ trajectory: {traj}")
-    ms = emergent_milestones(start_owned, path, world)
-    if ms:
-        # Only show milestones that are in scope (if scope given) — these are the
-        # "real" intermediate milestones the user can credit toward the path.
-        in_scope_ms = [(t, r) for t, r in ms if (scope is None or r.ings.issubset(scope))]
-        if in_scope_ms:
-            print(f"  in-scope milestones (recipe lit up at step):")
-            for step, r in in_scope_ms:
-                print(f"    t={step:2d}  +{int(r.tier_bonus*100):2d}% {r.type_en:<7} {r.name:<22} ({r.score_final:,})")
-        out_of_scope = [(t, r) for t, r in ms if scope is not None and not r.ings.issubset(scope)]
-        if out_of_scope:
-            print(f"  out-of-scope side-effects ({len(out_of_scope)} recipes lit but not in goal scope, suppressed)")
+    print(f"  R(π) (α={alpha}, scope={len(scope) if scope else 'free'}, mode={mode}): "
+          f"{path_R(start_owned, path, world, alpha=alpha, scope=scope, mode=mode):,.0f}")
+    if path:
+        print(f"  sequence: {fmt_path(path, world)}")
+        traj = sigma_trajectory(start_owned, path, world, scope=scope, mode=mode)
+        # Per-step: ing name + σ + how many NEW recipes this step enabled (in scope)
+        o = set(start_owned)
+        prev_unlocked = {r.name for r in world.recipes if r.ings.issubset(o) and (scope is None or r.ings.issubset(scope))}
+        print(f"  per-step breakdown:")
+        print(f"    {'t':<3}{'ing':<14}{'σ':<12}{'new unlocks (in-scope)'}")
+        for step, (ing_i, s) in enumerate(zip(path, traj), 1):
+            o.add(ing_i)
+            now = {r.name for r in world.recipes if r.ings.issubset(o) and (scope is None or r.ings.issubset(scope))}
+            new_names = sorted(now - prev_unlocked)
+            new_recipes = [r for r in world.recipes if r.name in (now - prev_unlocked)]
+            new_recipes.sort(key=lambda r: -r.score_final)
+            unlock_str = ', '.join(
+                f"+{int(r.tier_bonus*100)}% {r.name}({r.score_final:,})" for r in new_recipes
+            ) if new_recipes else '—'
+            print(f"    {step:<3}{world.ingredients[ing_i]:<14}{s:<12,}{unlock_str}")
+            prev_unlocked = now
     print()
 
 
 def report_scenario(label: str, goals_names: list[str], world: World, *,
                     owned_names: list[str] = (), alpha: float = 0.0, beam: int = 20,
-                    extra_scope_ings: list[str] = ()) -> None:
+                    extra_scope_ings: list[str] = (), mode: str = 'sum') -> None:
     print('━' * 80)
     print(f"SCENARIO: {label}")
     print(f"  Goals: {goals_names}")
     print(f"  Owned at start: {list(owned_names) or '∅'}")
     if extra_scope_ings:
         print(f"  Extra scope ings (user-extended optionals): {extra_scope_ings}")
-    print(f"  patience α: {alpha}; beam K: {beam}")
+    print(f"  σ mode: {mode}, patience α: {alpha}, beam K: {beam}")
     print('━' * 80)
     goals = [world.by_name[n] for n in goals_names]
     start = frozenset(world.name_to_idx[n] for n in owned_names)
@@ -314,22 +329,22 @@ def report_scenario(label: str, goals_names: list[str], world: World, *,
     scope = req | extra_set
     print(f"  effective scope ({len(scope)}): {sorted(world.ingredients[i] for i in scope)}")
 
-    p_g = greedy_path(start, goals, world, scope=scope, alpha=alpha)
-    report_path('A. Greedy (Local)', start, p_g, world, alpha=alpha, scope=scope)
+    p_g = greedy_path(start, goals, world, scope=scope, alpha=alpha, mode=mode)
+    report_path('A. Greedy (Local)', start, p_g, world, alpha=alpha, scope=scope, mode=mode)
 
-    p_b = beam_path(start, goals, world, beam=beam, alpha=alpha, scope=scope)
-    report_path(f'B. Beam (Global, K={beam})', start, p_b, world, alpha=alpha, scope=scope)
+    p_b = beam_path(start, goals, world, beam=beam, alpha=alpha, scope=scope, mode=mode)
+    report_path(f'B. Beam (Global, K={beam})', start, p_b, world, alpha=alpha, scope=scope, mode=mode)
 
-    p_polished = two_opt_polish(start, p_b, world, alpha=alpha, scope=scope)
+    p_polished = two_opt_polish(start, p_b, world, alpha=alpha, scope=scope, goals=goals, mode=mode)
     if p_polished != p_b:
-        report_path('C. Beam + 2-opt polish', start, p_polished, world, alpha=alpha, scope=scope)
+        report_path('C. Beam + 2-opt polish', start, p_polished, world, alpha=alpha, scope=scope, mode=mode)
     else:
         print(f"  C. 2-opt polish: no improvement over Beam")
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 
-def scope_frontier(world: World, goal_names: list[str], max_extras: int = 4, beam: int = 20, alpha: float = 0.0) -> None:
+def scope_frontier(world: World, goal_names: list[str], max_extras: int = 4, beam: int = 20, alpha: float = 0.0, mode: str = 'sum') -> None:
     """Enumerate small subsets of extra ings (beyond required), report the best path R for each.
     Helps the user choose how much grind they want for how much payoff."""
     from itertools import combinations
@@ -344,24 +359,24 @@ def scope_frontier(world: World, goal_names: list[str], max_extras: int = 4, bea
     print(f"  candidate extras: {[world.ingredients[i] for i in candidate_extras]}")
     print()
 
-    best_per_k = {}  # k -> (R, extras, path)
+    best_per_k = {}
     for k in range(0, min(max_extras, len(candidate_extras)) + 1):
         best = None
         for combo in combinations(candidate_extras, k):
             scope = frozenset(req | set(combo))
-            p = beam_path(frozenset(), goals, world, beam=beam, alpha=alpha, scope=scope)
-            R = path_R(frozenset(), p, world, alpha=alpha, scope=scope)
+            p = beam_path(frozenset(), goals, world, beam=beam, alpha=alpha, scope=scope, mode=mode)
+            R = path_R(frozenset(), p, world, alpha=alpha, scope=scope, mode=mode)
             if best is None or R > best[0]:
                 best = (R, list(combo), p, scope)
         best_per_k[k] = best
         R, extras, p, scope = best
         extras_names = [world.ingredients[i] for i in extras]
         if alpha > 0:
-            R_total = path_R(frozenset(), p, world, alpha=0.0, scope=scope)
+            R_total = path_R(frozenset(), p, world, alpha=0.0, scope=scope, mode=mode)
             print(f"  k={k} (path {len(p):2d} steps, R={R_total:,.0f}, R/n^{alpha}={R:,.0f}): extras = {extras_names}")
         else:
             print(f"  k={k} (path {len(p):2d} steps, R={R:,.0f}): extras = {extras_names}")
-        traj = sigma_trajectory(frozenset(), p, world, scope=scope)
+        traj = sigma_trajectory(frozenset(), p, world, scope=scope, mode=mode)
         print(f"      σ trajectory: {traj}")
     print()
 
